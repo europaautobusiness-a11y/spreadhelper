@@ -428,6 +428,102 @@
     margin-top: 2px;
   }
 
+  /* Modale dettagli trade */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 100;
+    display: none;
+    overflow-y: auto;
+    padding: max(env(safe-area-inset-top), 16px) 0 max(env(safe-area-inset-bottom), 16px);
+  }
+  .modal-overlay.show {
+    display: block;
+    animation: fadeIn 0.2s ease;
+  }
+  .modal {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 0 14px;
+    position: relative;
+  }
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+    padding: 14px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 5;
+  }
+  .modal-header h2 {
+    font-size: 16px;
+    font-weight: 700;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .modal-close {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    width: 36px;
+    height: 36px;
+    cursor: pointer;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+  .modal-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .modal-actions .btn {
+    padding: 12px 8px;
+    font-size: 12px;
+  }
+  /* Saved badge indicator */
+  .editing-badge {
+    background: var(--amber-glow);
+    border: 1px solid var(--amber);
+    color: var(--amber);
+    padding: 10px 14px;
+    border-radius: 10px;
+    margin-bottom: 14px;
+    font-size: 13px;
+    display: none;
+    align-items: center;
+    gap: 10px;
+  }
+  .editing-badge.show { display: flex; }
+  .editing-badge strong { color: var(--text); }
+  .editing-badge button {
+    background: transparent;
+    border: 1px solid var(--amber);
+    color: var(--amber);
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-left: auto;
+  }
+  @media (max-width: 520px) {
+    .modal-actions { grid-template-columns: 1fr; }
+  }
+
   /* Storage indicator */
   .storage-info {
     font-size: 11px; color: var(--text-faint); padding: 10px 12px;
@@ -470,6 +566,13 @@
   </div>
 
   <section class="panel active" id="panel-calc">
+
+    <div class="editing-badge" id="editingBadge">
+      <span>✏️</span>
+      <span>Stai <strong>modificando</strong> un trade salvato. I cambiamenti aggiorneranno il trade esistente.</span>
+      <button id="cancelEditBtn">Annulla</button>
+    </div>
+
     <div class="card">
       <div class="card-title">Tipo di Spread</div>
       <div class="row single">
@@ -763,6 +866,22 @@
   </section>
 </div>
 
+<!-- Modale dettagli trade -->
+<div class="modal-overlay" id="detailsModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modalTitle">Dettagli Trade</h2>
+      <button class="modal-close" id="modalClose" aria-label="Chiudi">✕</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="modalEditBtn">✏️ Modifica</button>
+      <button class="btn secondary" id="modalIcsBtn">📅 Calendario</button>
+      <button class="btn secondary" id="modalDeleteBtn" style="color:var(--red);border-color:var(--red);opacity:0.85;">🗑 Elimina</button>
+    </div>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
 <script>
 // ============================================================
 // INDEXEDDB - persistenza vera su Android
@@ -891,6 +1010,7 @@ spreadType.addEventListener('change', () => {
 });
 
 let lastResult = null;
+let editingId = null; // se non-null, sto modificando un trade esistente
 const output = document.getElementById('output');
 const exitCard = document.getElementById('exitCard');
 const reminderCard = document.getElementById('reminderCard');
@@ -1490,12 +1610,17 @@ document.getElementById('resetBtn').addEventListener('click', () => {
   document.getElementById('reminderNotes').value = '';
   document.getElementById('nearMonthSel').value = '';
   document.getElementById('farMonthSel').value = '';
+  document.querySelectorAll('.sign-btn').forEach(btn => {
+    const input = document.getElementById(btn.dataset.target);
+    if (input) updateSignButton(input, btn);
+  });
   updateCMECodeHints();
   output.innerHTML = '';
   document.getElementById('pnlOutput').innerHTML = '';
   exitCard.style.display = 'none';
   reminderCard.style.display = 'none';
   lastResult = null;
+  exitEditingMode();
 });
 
 // ============================================================
@@ -1507,21 +1632,166 @@ document.getElementById('addReminderBtn').addEventListener('click', async () => 
   const notes = document.getElementById('reminderNotes').value.trim();
   if (!entryDeadline) { alert('Inserisci la data limite di entrata'); return; }
 
+  const isEditing = !!editingId;
   const trade = {
     ...lastResult,
-    id: 'rem_' + Date.now(),
+    id: editingId || ('rem_' + Date.now()),
     entryDeadline, notes,
-    created: Date.now()
+    created: editingId ? lastResult.created : Date.now(),
+    updated: Date.now()
   };
   try {
     await dbPut(trade);
     const btn = document.getElementById('addReminderBtn');
-    btn.textContent = '✓ Salvato!';
-    setTimeout(() => { btn.textContent = 'Salva Trade'; }, 1800);
+    btn.textContent = isEditing ? '✓ Aggiornato!' : '✓ Salvato!';
+    setTimeout(() => { btn.textContent = isEditing ? 'Aggiorna Trade' : 'Salva Trade'; }, 1800);
     await updateBadge();
     await checkAlerts();
+    // se stavo modificando, esco dalla modalità edit
+    if (isEditing) {
+      exitEditingMode();
+    }
   } catch (e) { alert('Errore salvataggio: ' + e.message); }
 });
+
+// ============================================================
+// EDITING MODE
+// ============================================================
+function enterEditingMode(trade) {
+  editingId = trade.id;
+  document.getElementById('editingBadge').classList.add('show');
+  document.getElementById('addReminderBtn').textContent = 'Aggiorna Trade';
+  // scroll al top
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function exitEditingMode() {
+  editingId = null;
+  document.getElementById('editingBadge').classList.remove('show');
+  document.getElementById('addReminderBtn').textContent = 'Salva Trade';
+}
+
+document.getElementById('cancelEditBtn').addEventListener('click', () => {
+  if (confirm('Annullare la modifica? I cambiamenti non salvati andranno persi.')) {
+    document.getElementById('resetBtn').click();
+    exitEditingMode();
+  }
+});
+
+function loadTradeIntoForm(r) {
+  // Reset prima di caricare
+  document.querySelectorAll('input').forEach(i => {
+    if (i.type !== 'date') i.value = '';
+    else i.value = '';
+  });
+  document.getElementById('view').value = '';
+  document.getElementById('nearMonthSel').value = '';
+  document.getElementById('farMonthSel').value = '';
+
+  // Tipo
+  document.getElementById('spreadType').value = (r.type === 'Calendar') ? 'calendar' : 'intercommodity';
+  document.getElementById('spreadType').dispatchEvent(new Event('change'));
+
+  // Quantità e point
+  document.getElementById('qty').value = r.qty || 1;
+  document.getElementById('pointPrice').value = r.pointPrice || 1000;
+
+  // Date
+  if (r.entryDate) document.getElementById('entryDate').value = r.entryDate;
+  if (r.exitDateTarget) document.getElementById('exitDateTarget').value = r.exitDateTarget;
+  if (r.entryDeadline) document.getElementById('entryDeadline').value = r.entryDeadline;
+
+  // Target/Stop
+  if (r.targetSpread !== null && r.targetSpread !== undefined) document.getElementById('targetSpread').value = r.targetSpread;
+  if (r.stopSpread !== null && r.stopSpread !== undefined) document.getElementById('stopSpread').value = r.stopSpread;
+  // refresh sign buttons
+  document.querySelectorAll('.sign-btn').forEach(btn => {
+    const input = document.getElementById(btn.dataset.target);
+    if (input) updateSignButton(input, btn);
+  });
+
+  // Gambe
+  if (r.type === 'Calendar') {
+    // Provo a estrarre mese/anno dal label leg1 / leg2
+    // Format atteso: "XXX (MES 2026)" oppure "XXX MES 2026"
+    const parsed1 = parseLegLabel(r.leg1);
+    const parsed2 = parseLegLabel(r.leg2);
+    if (parsed1) {
+      if (parsed1.underlying) {
+        const opt = Array.from(document.getElementById('underlying').options).find(o => o.value === parsed1.underlying);
+        if (opt) document.getElementById('underlying').value = parsed1.underlying;
+      }
+      if (parsed1.monthCode) document.getElementById('nearMonthSel').value = parsed1.monthValue;
+      if (parsed1.year) document.getElementById('nearYearSel').value = parsed1.year;
+    }
+    if (parsed2 && parsed2.monthCode) {
+      document.getElementById('farMonthSel').value = parsed2.monthValue;
+      if (parsed2.year) document.getElementById('farYearSel').value = parsed2.year;
+    }
+    if (r.p1 !== null) document.getElementById('nearPrice').value = r.p1;
+    if (r.p2 !== null) document.getElementById('farPrice').value = r.p2;
+    updateCMECodeHints();
+  } else {
+    document.getElementById('legASymbol').value = r.leg1 || '';
+    document.getElementById('legBSymbol').value = r.leg2 || '';
+    if (r.p1 !== null) document.getElementById('legAPrice').value = r.p1;
+    if (r.p2 !== null) document.getElementById('legBPrice').value = r.p2;
+  }
+
+  // View
+  if (r.view) document.getElementById('view').value = r.view;
+
+  // Notes
+  if (r.notes) document.getElementById('reminderNotes').value = r.notes;
+
+  // Exit reali (se presenti)
+  if (r.exitP1 !== undefined && r.exitP1 !== null) {
+    if (r.type === 'Calendar') document.getElementById('nearExitPrice').value = r.exitP1;
+    else document.getElementById('legAExitPrice').value = r.exitP1;
+  }
+  if (r.exitP2 !== undefined && r.exitP2 !== null) {
+    if (r.type === 'Calendar') document.getElementById('farExitPrice').value = r.exitP2;
+    else document.getElementById('legBExitPrice').value = r.exitP2;
+  }
+
+  // Salvo created per preservarlo
+  lastResult = { created: r.created };
+
+  // Ricalcolo automaticamente
+  compute();
+
+  // Se aveva prezzi di uscita, calcolo anche P&L
+  if (r.exitP1 !== undefined && r.exitP1 !== null && r.exitP2 !== undefined && r.exitP2 !== null) {
+    setTimeout(() => document.getElementById('calcPnlBtn').click(), 100);
+  }
+}
+
+// Parser per estrarre underlying/mese/anno da un label tipo "VXN LUG 2026" o "VXNN26 (LUG 2026)"
+function parseLegLabel(label) {
+  if (!label) return null;
+  const monthMap = {
+    'GEN':'F','FEB':'G','MAR':'H','APR':'J','MAG':'K','GIU':'M',
+    'LUG':'N','AGO':'Q','SET':'U','OTT':'V','NOV':'X','DIC':'Z'
+  };
+  // Match "XXX MES YYYY" o "(MES YYYY)"
+  const m = label.match(/([A-Z]+)\s+(GEN|FEB|MAR|APR|MAG|GIU|LUG|AGO|SET|OTT|NOV|DIC)\s+(\d{4})/i)
+        || label.match(/\((GEN|FEB|MAR|APR|MAG|GIU|LUG|AGO|SET|OTT|NOV|DIC)\s+(\d{4})\)/i);
+  if (!m) return null;
+  if (m.length === 4) {
+    return {
+      underlying: m[1].toUpperCase(),
+      monthCode: monthMap[m[2].toUpperCase()],
+      monthValue: monthMap[m[2].toUpperCase()] + '|' + m[2].toUpperCase(),
+      year: m[3]
+    };
+  } else {
+    return {
+      monthCode: monthMap[m[1].toUpperCase()],
+      monthValue: monthMap[m[1].toUpperCase()] + '|' + m[1].toUpperCase(),
+      year: m[2]
+    };
+  }
+}
 
 // ============================================================
 // RENDER REMINDERS
@@ -1562,33 +1832,43 @@ async function renderReminders() {
     else { label = `${days}`; text = `${days} giorni`; }
     const deadlineFmt = new Date(r.entryDeadline).toLocaleDateString('it-IT', {day:'2-digit',month:'short',year:'numeric'});
     const exitFmt = r.exitDateTarget ? new Date(r.exitDateTarget).toLocaleDateString('it-IT',{day:'2-digit',month:'short'}) : null;
+    const hasRealPnl = r.exitP1 !== undefined && r.exitP1 !== null;
+    let pnlBadge = '';
+    if (hasRealPnl) {
+      const exitSpread = r.exitP1 - r.exitP2;
+      const moveSpread = exitSpread - r.spread;
+      const pnl = (r.action === 'BUY' ? moveSpread : -moveSpread) * r.qty * r.pointPrice;
+      pnlBadge = `<div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;color:${pnl>=0?'var(--green)':'var(--red)'};margin-top:3px;">P&L: ${pnl>=0?'+':''}$${pnl.toFixed(0)}</div>`;
+    }
     return `
       <div class="reminder-item ${urgency}">
-        <div class="reminder-head">
+        <div class="reminder-head" style="cursor:pointer;" data-action="view" data-id="${r.id}">
           <div style="min-width:0;flex:1;">
             <div class="reminder-name">${r.leg1} / ${r.leg2}</div>
             <div class="reminder-meta">${r.type} · ${r.qty}x · entrata @ ${r.spread!==null?r.spread.toFixed(4):'—'}</div>
+            ${pnlBadge}
           </div>
           <div class="reminder-action ${r.action.toLowerCase()}">${r.action}</div>
         </div>
-        <div class="countdown ${urgency}">
+        <div class="countdown ${urgency}" style="cursor:pointer;" data-action="view" data-id="${r.id}">
           <div class="days">${label}</div>
           <div class="label">
             <div>${text}</div>
             <div style="color:var(--text-faint);font-size:10px;margin-top:2px;">Entro: ${deadlineFmt}${exitFmt?` · Uscita: ${exitFmt}`:''}</div>
           </div>
         </div>
-        ${r.notes ? `<div class="reminder-notes">"${r.notes}"</div>` : ''}
+        ${r.notes ? `<div class="reminder-notes">"${escapeHtml(r.notes)}"</div>` : ''}
         <div class="reminder-controls">
-          <button class="icon-btn cal" data-action="ics" data-id="${r.id}">📅 Calendario</button>
-          <button class="icon-btn" data-action="view" data-id="${r.id}">👁 Dettagli</button>
+          <button class="icon-btn cal" data-action="ics" data-id="${r.id}">📅</button>
+          <button class="icon-btn" data-action="view" data-id="${r.id}">👁 Apri</button>
           <button class="icon-btn danger" data-action="delete" data-id="${r.id}">✕</button>
         </div>
       </div>
     `;
   }).join('');
 
-  list.querySelectorAll('.icon-btn').forEach(b => {
+  // Listener su tutti gli elementi con data-action
+  list.querySelectorAll('[data-action]').forEach(b => {
     b.addEventListener('click', () => handleAction(b.dataset.action, b.dataset.id, items));
   });
 }
@@ -1601,8 +1881,178 @@ async function handleAction(action, id, items) {
       await dbDelete(id); renderReminders(); updateBadge(); checkAlerts();
     }
   } else if (action === 'ics') downloadICS(r);
-  else if (action === 'view') showDetails(r);
+  else if (action === 'view') openDetailsModal(r);
 }
+
+// ============================================================
+// MODALE DETTAGLI TRADE (con grafici e P&L)
+// ============================================================
+let currentModalTrade = null;
+
+function openDetailsModal(r) {
+  currentModalTrade = r;
+  const overlay = document.getElementById('detailsModal');
+  const content = document.getElementById('modalContent');
+  document.getElementById('modalTitle').textContent = `${r.action} ${r.leg1} / ${r.leg2}`;
+
+  // Costruisco il contenuto della modale: stessa decisione + grafici + P&L
+  const action = r.action;
+  const spreadPrice = r.spread;
+  const qty = r.qty || 1;
+  const pointPrice = r.pointPrice || 1000;
+  const leg1Label = r.leg1, leg2Label = r.leg2;
+  const p1 = r.p1, p2 = r.p2;
+  const buyLeg = action === 'BUY' ? leg1Label : leg2Label;
+  const sellLeg = action === 'BUY' ? leg2Label : leg1Label;
+  const buyPrice = action === 'BUY' ? p1 : p2;
+  const sellPrice = action === 'BUY' ? p2 : p1;
+  const cssClass = action === 'BUY' ? 'buy' : 'sell';
+  const actionText = action === 'BUY' ? '↑ BUY' : '↓ SELL';
+
+  let pricingExplain = '';
+  if (spreadPrice !== null && spreadPrice !== undefined) {
+    const sign = spreadPrice >= 0 ? '+' : '';
+    pricingExplain = `
+      <div style="margin-top: 10px;">
+        <span style="color: var(--text-faint);">Prezzo combo IB:</span> <strong class="mono">${sign}${spreadPrice.toFixed(4)}</strong>
+        <div style="color: var(--text-faint); font-size:11px; margin-top:4px;">Esposizione: <span class="mono" style="color:var(--text);">$${(qty * pointPrice).toLocaleString()}</span> per punto</div>
+      </div>`;
+  }
+
+  let chart = '', payoff = '', projection = '';
+  if (spreadPrice !== null && spreadPrice !== undefined) {
+    chart = buildTimeChart(action, spreadPrice, qty, pointPrice, leg1Label, leg2Label,
+                           r.entryDate, r.exitDateTarget, r.targetSpread, r.stopSpread);
+    payoff = buildPayoffChart(action, spreadPrice, qty, pointPrice);
+    projection = buildProjection(action, spreadPrice, qty, pointPrice, r.targetSpread, r.stopSpread);
+  }
+
+  // P&L reale se ci sono prezzi di uscita
+  let realPnl = '';
+  if (r.exitP1 !== undefined && r.exitP1 !== null && r.exitP2 !== undefined && r.exitP2 !== null) {
+    const exitSpread = r.exitP1 - r.exitP2;
+    const moveSpread = exitSpread - spreadPrice;
+    const pnl = (action === 'BUY' ? moveSpread : -moveSpread) * qty * pointPrice;
+    let pnlLeg1, pnlLeg2;
+    if (action === 'BUY') {
+      pnlLeg1 = (r.exitP1 - p1) * qty * pointPrice;
+      pnlLeg2 = (p2 - r.exitP2) * qty * pointPrice;
+    } else {
+      pnlLeg1 = (p1 - r.exitP1) * qty * pointPrice;
+      pnlLeg2 = (r.exitP2 - p2) * qty * pointPrice;
+    }
+    const pnlClass = pnl >= 0 ? 'pos' : 'neg';
+    realPnl = `
+      <div class="pnl-panel" style="margin-top:14px;border:1px solid ${pnl >= 0 ? 'var(--green)' : 'var(--red)'};">
+        <div style="font-size:13px;font-weight:700;margin-bottom:10px;color:${pnl >= 0 ? 'var(--green)' : 'var(--red)'};">✅ P&L REALE (operazione chiusa)</div>
+        <div class="pnl-row"><span class="label">Spread entrata</span><span class="val">${spreadPrice.toFixed(4)}</span></div>
+        <div class="pnl-row"><span class="label">Spread uscita</span><span class="val">${exitSpread.toFixed(4)}</span></div>
+        <div class="pnl-row"><span class="label">Movimento</span><span class="val ${moveSpread>=0?'pos':'neg'}">${moveSpread>=0?'+':''}${moveSpread.toFixed(4)}</span></div>
+        <div class="pnl-row"><span class="label">P&L ${leg1Label}</span><span class="val ${pnlLeg1>=0?'pos':'neg'}">${pnlLeg1>=0?'+':''}$${pnlLeg1.toFixed(2)}</span></div>
+        <div class="pnl-row"><span class="label">P&L ${leg2Label}</span><span class="val ${pnlLeg2>=0?'pos':'neg'}">${pnlLeg2>=0?'+':''}$${pnlLeg2.toFixed(2)}</span></div>
+        <div class="pnl-row total"><span class="label">P&L TOTALE</span><span class="val ${pnlClass}">${pnl>=0?'+':''}$${pnl.toFixed(2)}</span></div>
+      </div>
+    `;
+  }
+
+  // Promemoria info
+  const deadlineFmt = r.entryDeadline ? new Date(r.entryDeadline).toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'}) : '—';
+  const exitTargetFmt = r.exitDateTarget ? new Date(r.exitDateTarget).toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'}) : '—';
+  const days = r.entryDeadline ? getDaysLeft(r.entryDeadline) : null;
+  let daysHtml = '';
+  if (days !== null) {
+    let cls = days < 0 ? 'expired' : days <= 1 ? 'urgent' : days <= 3 ? 'warning' : 'ok';
+    let text;
+    if (days < 0) text = `Scaduto ${Math.abs(days)}g fa`;
+    else if (days === 0) text = 'OGGI';
+    else if (days === 1) text = 'Domani';
+    else text = `Tra ${days} giorni`;
+    daysHtml = `<div class="countdown ${cls}" style="margin-top:10px;">
+      <div class="days">${days < 0 ? '×' : days}</div>
+      <div class="label">
+        <div>${text}</div>
+        <div style="color:var(--text-faint);font-size:11px;margin-top:2px;">Entrata entro: ${deadlineFmt}</div>
+      </div>
+    </div>`;
+  }
+
+  content.innerHTML = `
+    <div class="decision ${cssClass}">
+      <div class="decision-action">${actionText}</div>
+      <div class="decision-sub">${qty} contratto${qty>1?'i':''} · ${r.type}</div>
+      <div class="legs">
+        <div class="leg">
+          <div class="leg-label">Leg 1 (Buy)</div>
+          <div class="leg-value">${leg1Label}</div>
+          ${p1 !== null && p1 !== undefined ? `<div style="margin-top:4px; color: var(--text-faint); font-family: 'JetBrains Mono', monospace; font-size: 11px;">$${p1.toFixed(2)}</div>` : ''}
+        </div>
+        <div class="legs-op">−</div>
+        <div class="leg">
+          <div class="leg-label">Leg 2 (Sell)</div>
+          <div class="leg-value">${leg2Label}</div>
+          ${p2 !== null && p2 !== undefined ? `<div style="margin-top:4px; color: var(--text-faint); font-family: 'JetBrains Mono', monospace; font-size: 11px;">$${p2.toFixed(2)}</div>` : ''}
+        </div>
+      </div>
+      <div class="decision-detail">
+        <div><strong>Cosa significa:</strong></div>
+        <div>→ <span class="${action==='BUY'?'pos':'neg'}">${action==='BUY'?'LONG':'SHORT'}</span> ${buyLeg} ${buyPrice!==null&&buyPrice!==undefined?`<span class="mono">@ $${buyPrice.toFixed(2)}</span>`:''}</div>
+        <div>→ <span class="${action==='BUY'?'neg':'pos'}">${action==='BUY'?'SHORT':'LONG'}</span> ${sellLeg} ${sellPrice!==null&&sellPrice!==undefined?`<span class="mono">@ $${sellPrice.toFixed(2)}</span>`:''}</div>
+        ${pricingExplain}
+      </div>
+      ${daysHtml}
+      ${realPnl}
+      ${projection}
+      ${chart}
+      ${payoff}
+      ${r.notes ? `<div class="card" style="margin-top:14px;background:var(--bg);"><div class="card-title">📝 Note</div><div style="font-size:14px;color:var(--text-dim);font-style:italic;line-height:1.6;">"${escapeHtml(r.notes)}"</div></div>` : ''}
+    </div>
+  `;
+
+  overlay.classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function closeDetailsModal() {
+  document.getElementById('detailsModal').classList.remove('show');
+  document.body.style.overflow = '';
+  currentModalTrade = null;
+}
+
+document.getElementById('modalClose').addEventListener('click', closeDetailsModal);
+document.getElementById('detailsModal').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('detailsModal')) closeDetailsModal();
+});
+
+document.getElementById('modalEditBtn').addEventListener('click', () => {
+  if (!currentModalTrade) return;
+  const trade = currentModalTrade;
+  closeDetailsModal();
+  // vai al tab calcola
+  document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(x => x.classList.remove('active'));
+  document.querySelector('[data-tab="calc"]').classList.add('active');
+  document.getElementById('panel-calc').classList.add('active');
+  loadTradeIntoForm(trade);
+  enterEditingMode(trade);
+});
+
+document.getElementById('modalIcsBtn').addEventListener('click', () => {
+  if (currentModalTrade) downloadICS(currentModalTrade);
+});
+
+document.getElementById('modalDeleteBtn').addEventListener('click', async () => {
+  if (!currentModalTrade) return;
+  if (!confirm('Eliminare questo trade?')) return;
+  await dbDelete(currentModalTrade.id);
+  closeDetailsModal();
+  renderReminders();
+  updateBadge();
+  checkAlerts();
+});
 
 function downloadICS(r) {
   const d = new Date(r.entryDeadline);
@@ -1633,21 +2083,6 @@ function downloadICS(r) {
   a.href = url; a.download = `spread_${r.leg1.replace(/\s+/g,'_')}_${r.leg2.replace(/\s+/g,'_')}.ics`;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
-}
-
-function showDetails(r) {
-  const lines = [`${r.action} ${r.leg1} / ${r.leg2}`, ``,
-    `Tipo: ${r.type}`, `Quantità: ${r.qty}`, `Point: $${r.pointPrice}`];
-  if (r.spread !== null) lines.push(`Spread entrata: ${r.spread.toFixed(4)}`);
-  if (r.targetSpread !== null) lines.push(`Target: ${r.targetSpread.toFixed(4)}`);
-  if (r.stopSpread !== null) lines.push(`Stop: ${r.stopSpread.toFixed(4)}`);
-  if (r.exitSpread !== null && r.exitSpread !== undefined) lines.push(`Spread uscita: ${r.exitSpread.toFixed(4)}`);
-  if (r.pnl !== null && r.pnl !== undefined) lines.push(`P&L: ${r.pnl>=0?'+':''}$${r.pnl.toFixed(2)}`);
-  lines.push('');
-  lines.push(`Entro: ${new Date(r.entryDeadline).toLocaleDateString('it-IT')}`);
-  if (r.exitDateTarget) lines.push(`Uscita prevista: ${new Date(r.exitDateTarget).toLocaleDateString('it-IT')}`);
-  if (r.notes) lines.push('', `Note: ${r.notes}`);
-  alert(lines.join('\n'));
 }
 
 async function updateBadge() {
