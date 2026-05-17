@@ -336,6 +336,98 @@
     border-color: var(--red);
   }
 
+  /* P&L Projection - 3 scenari */
+  .projection-wrap {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    margin-top: 14px;
+  }
+  .projection-title {
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .projection-sub {
+    font-size: 11px;
+    color: var(--text-faint);
+    margin-bottom: 12px;
+  }
+  .scenarios {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .scenario {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    text-align: center;
+    position: relative;
+  }
+  .scenario.target {
+    background: linear-gradient(135deg, rgba(0,229,137,0.10), transparent);
+    border-color: var(--green);
+  }
+  .scenario.stop {
+    background: linear-gradient(135deg, rgba(255,92,112,0.10), transparent);
+    border-color: var(--red);
+  }
+  .scenario .ico {
+    font-size: 20px;
+    margin-bottom: 2px;
+  }
+  .scenario .scenario-label {
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .scenario .scenario-pnl {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px;
+    font-weight: 800;
+    line-height: 1.1;
+  }
+  .scenario.target .scenario-pnl { color: var(--green); }
+  .scenario.stop .scenario-pnl { color: var(--red); }
+  .scenario .scenario-detail {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-faint);
+    margin-top: 6px;
+  }
+  .rr-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--bg-elev);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+  .rr-bar .rr-label {
+    color: var(--text-dim);
+  }
+  .rr-bar .rr-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 800;
+    font-size: 16px;
+  }
+  .rr-bar .rr-value.good { color: var(--green); }
+  .rr-bar .rr-value.ok { color: var(--amber); }
+  .rr-bar .rr-value.bad { color: var(--red); }
+  .rr-bar .rr-hint {
+    font-size: 11px;
+    color: var(--text-faint);
+    font-family: 'JetBrains Mono', monospace;
+    margin-top: 2px;
+  }
+
   /* Storage indicator */
   .storage-info {
     font-size: 11px; color: var(--text-faint); padding: 10px 12px;
@@ -948,6 +1040,7 @@ function compute() {
 
   let chart = '';
   let payoff = '';
+  let projection = '';
   if (spreadPrice !== null) {
     const entryDate = document.getElementById('entryDate').value;
     const exitDateTarget = document.getElementById('exitDateTarget').value;
@@ -955,6 +1048,7 @@ function compute() {
     const stopSpread = parseFloat(document.getElementById('stopSpread').value);
     chart = buildTimeChart(action, spreadPrice, qty, pointPrice, leg1Label, leg2Label, entryDate, exitDateTarget, targetSpread, stopSpread);
     payoff = buildPayoffChart(action, spreadPrice, qty, pointPrice, leg1Label, leg2Label);
+    projection = buildProjection(action, spreadPrice, qty, pointPrice, targetSpread, stopSpread);
   }
 
   output.innerHTML = `
@@ -980,6 +1074,7 @@ function compute() {
         <div>→ <span class="${action==='BUY'?'neg':'pos'}">${action==='BUY'?'SHORT':'LONG'}</span> ${sellLeg} ${!isNaN(sellPrice)?`<span class="mono">@ $${sellPrice.toFixed(2)}</span>`:''}</div>
         ${pricingExplain}
       </div>
+      ${projection}
       ${chart}
       ${payoff}
       <div class="ib-steps" style="margin-top: 14px;">
@@ -1163,6 +1258,117 @@ function buildTimeChart(action, entrySpread, qty, pointPrice, leg1, leg2, entryD
       <div style="margin-top:10px;padding:8px 10px;background:var(--bg-elev);border-radius:6px;font-size:11px;color:var(--text-dim);line-height:1.5;">
         💡 La linea è una <strong style="color:var(--text);">simulazione visiva</strong>, non una previsione. I livelli numerici e le date sono i tuoi dati reali.
       </div>
+    </div>
+  `;
+}
+
+// ============================================================
+// P&L PROIETTATO sui target di entrata/uscita
+// ============================================================
+function buildProjection(action, entrySpread, qty, pointPrice, targetSpread, stopSpread) {
+  const hasTarget = !isNaN(targetSpread);
+  const hasStop = !isNaN(stopSpread);
+  if (!hasTarget && !hasStop) return '';
+
+  // P&L se chiude al target o stop
+  const pnlAt = (s) => (action === 'BUY' ? (s - entrySpread) : (entrySpread - s)) * qty * pointPrice;
+
+  let targetHtml = '';
+  let stopHtml = '';
+  let rrHtml = '';
+
+  if (hasTarget) {
+    const pnl = pnlAt(targetSpread);
+    const move = targetSpread - entrySpread;
+    const moveSign = move >= 0 ? '+' : '';
+    const pnlSign = pnl >= 0 ? '+' : '';
+    const pnlClass = pnl >= 0 ? 'target' : 'stop';
+    // Se il target dà profitto è effettivamente un target; se dà perdita è strano ma onesto mostrarlo
+    targetHtml = `
+      <div class="scenario ${pnlClass}">
+        <div class="ico">🎯</div>
+        <div class="scenario-label">Se Target</div>
+        <div class="scenario-pnl">${pnlSign}$${Math.abs(pnl).toFixed(0)}</div>
+        <div class="scenario-detail">@ ${targetSpread.toFixed(2)} · mov. ${moveSign}${move.toFixed(2)}</div>
+      </div>
+    `;
+  } else {
+    targetHtml = `<div class="scenario" style="opacity:0.4;border-style:dashed;">
+      <div class="ico" style="opacity:0.5;">🎯</div>
+      <div class="scenario-label">Target</div>
+      <div class="scenario-pnl" style="color:var(--text-faint);font-size:14px;">non impostato</div>
+    </div>`;
+  }
+
+  if (hasStop) {
+    const pnl = pnlAt(stopSpread);
+    const move = stopSpread - entrySpread;
+    const moveSign = move >= 0 ? '+' : '';
+    const pnlSign = pnl >= 0 ? '+' : '';
+    const pnlClass = pnl >= 0 ? 'target' : 'stop';
+    stopHtml = `
+      <div class="scenario ${pnlClass}">
+        <div class="ico">🛑</div>
+        <div class="scenario-label">Se Stop</div>
+        <div class="scenario-pnl">${pnlSign}$${Math.abs(pnl).toFixed(0)}</div>
+        <div class="scenario-detail">@ ${stopSpread.toFixed(2)} · mov. ${moveSign}${move.toFixed(2)}</div>
+      </div>
+    `;
+  } else {
+    stopHtml = `<div class="scenario" style="opacity:0.4;border-style:dashed;">
+      <div class="ico" style="opacity:0.5;">🛑</div>
+      <div class="scenario-label">Stop</div>
+      <div class="scenario-pnl" style="color:var(--text-faint);font-size:14px;">non impostato</div>
+    </div>`;
+  }
+
+  // Risk/Reward: ha senso solo se target = profitto e stop = perdita
+  if (hasTarget && hasStop) {
+    const pnlT = pnlAt(targetSpread);
+    const pnlS = pnlAt(stopSpread);
+    if (pnlT > 0 && pnlS < 0) {
+      const reward = pnlT;
+      const risk = Math.abs(pnlS);
+      const rr = reward / risk;
+      let rrClass = 'bad';
+      let rrText = 'Sfavorevole';
+      if (rr >= 2) { rrClass = 'good'; rrText = 'Ottimo'; }
+      else if (rr >= 1.5) { rrClass = 'good'; rrText = 'Buono'; }
+      else if (rr >= 1) { rrClass = 'ok'; rrText = 'Accettabile'; }
+      rrHtml = `
+        <div class="rr-bar">
+          <div>
+            <div class="rr-label">Risk / Reward</div>
+            <div class="rr-hint">Rischi $${risk.toFixed(0)} per guadagnare $${reward.toFixed(0)}</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="rr-value ${rrClass}">1 : ${rr.toFixed(2)}</div>
+            <div class="rr-hint" style="color:var(--${rrClass === 'good' ? 'green' : rrClass === 'ok' ? 'amber' : 'red'});">${rrText}</div>
+          </div>
+        </div>
+      `;
+    } else if (pnlT < 0 || pnlS > 0) {
+      // Configurazione strana: target o stop dalla parte sbagliata
+      rrHtml = `
+        <div class="rr-bar" style="background:var(--amber-glow);border:1px solid var(--amber);">
+          <div style="flex:1;">
+            <div class="rr-label" style="color:var(--amber);font-weight:700;">⚠ Configurazione inconsueta</div>
+            <div class="rr-hint" style="line-height:1.5;">Hai un ${action} ma target/stop sembrano invertiti per la direzione del trade. Controlla.</div>
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  return `
+    <div class="projection-wrap">
+      <div class="projection-title">💰 P&L Proiettato</div>
+      <div class="projection-sub">Quanto guadagni/perdi se chiudi a target o stop (con ${qty} contratto${qty>1?'i':''} × $${pointPrice}/punto)</div>
+      <div class="scenarios">
+        ${targetHtml}
+        ${stopHtml}
+      </div>
+      ${rrHtml}
     </div>
   `;
 }
