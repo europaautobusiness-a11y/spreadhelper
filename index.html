@@ -1,0 +1,1404 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0a0e0d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Spread">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Spread Helper</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e0d;
+    --bg-elev: #11181a;
+    --bg-card: #151e1f;
+    --border: #2a3839;
+    --border-bright: #3a4d4f;
+    --text: #f4f8f5;
+    --text-dim: #b0bcb9;
+    --text-faint: #7a8a87;
+    --green: #00e589;
+    --green-glow: rgba(0, 229, 137, 0.18);
+    --red: #ff5c70;
+    --red-glow: rgba(255, 92, 112, 0.18);
+    --amber: #ffc04d;
+    --amber-glow: rgba(255, 192, 77, 0.15);
+    --blue: #5ac8ff;
+    --blue-glow: rgba(90, 200, 255, 0.15);
+    --purple: #b88dff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { overscroll-behavior-y: contain; }
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    background-image:
+      radial-gradient(circle at 20% 10%, rgba(0, 229, 137, 0.04), transparent 40%),
+      radial-gradient(circle at 80% 90%, rgba(90, 200, 255, 0.03), transparent 40%);
+    padding: max(env(safe-area-inset-top), 16px) 14px max(env(safe-area-inset-bottom), 24px);
+    font-size: 15px;
+    line-height: 1.5;
+  }
+  .container { max-width: 800px; margin: 0 auto; }
+
+  .header { border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 20px; }
+  .header h1 { font-weight: 800; font-size: clamp(24px, 5vw, 32px); line-height: 1.1; letter-spacing: -0.02em; }
+  .header h1 em { font-style: normal; color: var(--green); font-weight: 700; }
+  .header .sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: var(--text-faint);
+    text-transform: uppercase; letter-spacing: 0.18em; margin-top: 6px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .status-dot {
+    width: 7px; height: 7px; background: var(--green); border-radius: 50%;
+    box-shadow: 0 0 12px var(--green); animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+  .install-prompt {
+    background: linear-gradient(90deg, rgba(90,200,255,0.15), rgba(90,200,255,0.05));
+    border: 1px solid var(--blue); border-radius: 10px; padding: 12px 14px;
+    margin-bottom: 16px; display: none; align-items: center; gap: 10px; font-size: 13px;
+  }
+  .install-prompt.show { display: flex; }
+  .install-prompt .icon { font-size: 22px; }
+  .install-prompt button { 
+    background: var(--blue); color: #0a0e0d; border: none; padding: 6px 12px; 
+    border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 12px; flex-shrink: 0;
+  }
+  .install-prompt .close { 
+    background: transparent; color: var(--text-dim); padding: 2px 6px; font-weight: 400;
+  }
+
+  .alert-bar {
+    background: linear-gradient(90deg, rgba(255,192,77,0.15), rgba(255,192,77,0.05));
+    border: 1px solid var(--amber); border-radius: 10px; padding: 12px 14px;
+    margin-bottom: 16px; display: flex; align-items: center; gap: 12px; font-size: 14px;
+  }
+  .alert-bar.urgent {
+    background: linear-gradient(90deg, rgba(255,92,112,0.15), rgba(255,92,112,0.05));
+    border-color: var(--red); animation: blink 2s ease-in-out infinite;
+  }
+  @keyframes blink {
+    0%,100% { box-shadow: 0 0 0 0 rgba(255,92,112,0.4); }
+    50% { box-shadow: 0 0 0 6px rgba(255,92,112,0); }
+  }
+  .alert-icon { font-size: 20px; flex-shrink: 0; }
+  .alert-msg { flex: 1; }
+  .alert-msg strong { color: var(--amber); font-weight: 700; }
+  .alert-bar.urgent .alert-msg strong { color: var(--red); }
+
+  .tabs {
+    display: flex; gap: 4px; margin-bottom: 20px;
+    border: 1px solid var(--border); border-radius: 10px;
+    padding: 4px; background: var(--bg-elev); overflow-x: auto;
+    position: sticky; top: env(safe-area-inset-top, 0); z-index: 10;
+  }
+  .tab {
+    flex: 1; padding: 11px 12px; background: transparent; border: none;
+    color: var(--text-dim); font-family: 'Inter', sans-serif; font-size: 13px;
+    font-weight: 600; cursor: pointer; border-radius: 7px;
+    transition: all 0.2s; white-space: nowrap;
+  }
+  .tab.active { background: var(--bg-card); color: var(--green); box-shadow: inset 0 0 0 1px var(--border-bright); }
+  .badge {
+    display: inline-block; background: var(--red); color: #fff; font-size: 10px;
+    padding: 1px 6px; border-radius: 8px; margin-left: 4px; font-weight: 700;
+  }
+
+  .panel { display: none; }
+  .panel.active { display: block; animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(4px);} to{opacity:1;transform:translateY(0);} }
+
+  .card {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 18px; margin-bottom: 14px;
+  }
+  .card-title {
+    font-size: 12px; color: var(--text-dim); text-transform: uppercase;
+    letter-spacing: 0.1em; font-weight: 700; margin-bottom: 14px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card-title::before { content: ''; width: 6px; height: 6px; background: var(--green); border-radius: 50%; }
+
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+  .row.single { grid-template-columns: 1fr; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: 12px; color: var(--text-dim); font-weight: 600; }
+  .field input, .field select, .field textarea {
+    background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    padding: 12px 13px; border-radius: 8px; font-family: 'Inter', sans-serif;
+    font-size: 16px; /* >= 16px prevents iOS zoom, also fine on Android */
+    font-weight: 500; transition: border 0.15s; width: 100%;
+  }
+  .field input[type="number"], .field input[type="date"] { font-family: 'JetBrains Mono', monospace; }
+  .field textarea { resize: vertical; min-height: 60px; }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    outline: none; border-color: var(--green); box-shadow: 0 0 0 3px var(--green-glow);
+  }
+  .field .hint { font-size: 11px; color: var(--text-faint); }
+
+  .legs {
+    display: grid; grid-template-columns: 1fr auto 1fr;
+    gap: 10px; align-items: center; margin: 14px 0;
+  }
+  .leg {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px; text-align: center;
+  }
+  .leg-label {
+    font-size: 10px; color: var(--text-faint); text-transform: uppercase;
+    letter-spacing: 0.1em; font-weight: 600; margin-bottom: 6px;
+  }
+  .leg-value { font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 700; }
+  .legs-op { font-size: 24px; color: var(--text-faint); font-weight: 300; }
+
+  .decision { border-radius: 12px; padding: 20px; margin-top: 8px; }
+  .decision.buy { background: linear-gradient(135deg, rgba(0,229,137,0.10), rgba(0,229,137,0.02)); border: 1px solid var(--green); }
+  .decision.sell { background: linear-gradient(135deg, rgba(255,92,112,0.10), rgba(255,92,112,0.02)); border: 1px solid var(--red); }
+  .decision.neutral { background: var(--bg-card); border: 1px dashed var(--border-bright); }
+  .decision-action {
+    font-weight: 800; font-size: clamp(32px, 9vw, 44px); line-height: 1;
+    letter-spacing: -0.03em; margin-bottom: 4px;
+  }
+  .decision.buy .decision-action { color: var(--green); }
+  .decision.sell .decision-action { color: var(--red); }
+  .decision-sub { font-size: 13px; color: var(--text-dim); margin-bottom: 14px; font-weight: 500; }
+  .decision-detail {
+    background: rgba(0,0,0,0.25); border-radius: 8px; padding: 12px;
+    margin-top: 12px; font-size: 13px; line-height: 1.7;
+  }
+  .decision-detail strong { color: var(--blue); }
+  .decision-detail .pos { color: var(--green); font-weight: 700; }
+  .decision-detail .neg { color: var(--red); font-weight: 700; }
+  .decision-detail .mono { font-family: 'JetBrains Mono', monospace; }
+
+  .chart-wrap {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px; margin-top: 14px;
+  }
+  .chart-title { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+  .chart-sub { font-size: 11px; color: var(--text-faint); margin-bottom: 10px; }
+  .chart-svg { width: 100%; height: auto; display: block; }
+  .chart-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; font-size: 11px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; color: var(--text-dim); }
+  .legend-dot { width: 12px; height: 3px; flex-shrink: 0; border-radius: 1px; }
+
+  .pnl-panel {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px; margin-top: 14px;
+  }
+  .pnl-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px;
+  }
+  .pnl-row:last-child { border-bottom: none; padding-top: 12px; }
+  .pnl-row .label { color: var(--text-dim); }
+  .pnl-row .val { font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .pnl-row.total .label { color: var(--text); font-weight: 700; }
+  .pnl-row.total .val { font-size: 20px; font-weight: 800; }
+  .pnl-row .val.pos { color: var(--green); }
+  .pnl-row .val.neg { color: var(--red); }
+
+  .ib-steps {
+    background: var(--bg); border-left: 3px solid var(--green);
+    border-radius: 0 8px 8px 0; padding: 12px 14px; margin-top: 14px;
+  }
+  .ib-step { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .ib-step:last-child { border-bottom: none; }
+  .ib-step-num { font-size: 16px; font-weight: 800; color: var(--green); line-height: 1.2; flex-shrink: 0; width: 22px; }
+  .ib-step-body { font-size: 13px; line-height: 1.5; }
+  .ib-step-body code {
+    background: var(--bg-elev); padding: 2px 6px; border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--blue);
+    border: 1px solid var(--border); font-weight: 600;
+  }
+
+  .btn {
+    background: var(--green); color: #0a0e0d; border: none;
+    padding: 14px 18px; border-radius: 8px; font-family: 'Inter', sans-serif;
+    font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.15s; width: 100%;
+  }
+  .btn:active { transform: scale(0.98); }
+  .btn.secondary { background: var(--bg-elev); color: var(--text); border: 1px solid var(--border-bright); }
+  .btn.amber { background: var(--amber); color: #0a0e0d; }
+  .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+  .reminder-item {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px; margin-bottom: 10px;
+  }
+  .reminder-item.urgent { border-color: var(--red); background: linear-gradient(135deg, rgba(255,92,112,0.06), transparent); }
+  .reminder-item.warning { border-color: var(--amber); background: linear-gradient(135deg, rgba(255,192,77,0.06), transparent); }
+  .reminder-item.expired { opacity: 0.55; border-style: dashed; }
+  .reminder-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+  .reminder-name { font-weight: 700; font-size: 15px; margin-bottom: 3px; word-break: break-word; }
+  .reminder-meta { font-size: 11px; color: var(--text-dim); }
+  .reminder-action {
+    font-size: 11px; font-weight: 700; padding: 4px 9px; border-radius: 5px;
+    text-transform: uppercase; letter-spacing: 0.08em; white-space: nowrap;
+  }
+  .reminder-action.buy { background: var(--green-glow); color: var(--green); }
+  .reminder-action.sell { background: var(--red-glow); color: var(--red); }
+  .countdown {
+    display: flex; align-items: center; gap: 12px; margin: 10px 0;
+    padding: 10px 12px; background: var(--bg-elev); border-radius: 7px; font-size: 12px;
+  }
+  .countdown .days { font-weight: 800; font-size: 22px; line-height: 1; font-family: 'JetBrains Mono', monospace; }
+  .countdown.urgent .days { color: var(--red); }
+  .countdown.warning .days { color: var(--amber); }
+  .countdown.ok .days { color: var(--green); }
+  .countdown.expired .days { color: var(--text-faint); }
+  .countdown .label { color: var(--text-dim); flex: 1; }
+  .reminder-notes {
+    font-size: 12px; color: var(--text-dim); line-height: 1.5;
+    padding-top: 8px; border-top: 1px solid var(--border); margin-top: 8px; font-style: italic;
+  }
+  .reminder-controls { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+  .icon-btn {
+    background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+    padding: 8px 10px; border-radius: 6px; cursor: pointer; font-size: 12px;
+    font-weight: 600; flex: 1; min-width: 85px;
+  }
+  .icon-btn:active { transform: scale(0.97); }
+  .icon-btn.danger { color: var(--red); border-color: var(--red); opacity: 0.7; }
+  .icon-btn.cal { color: var(--blue); border-color: var(--blue); opacity: 0.85; }
+
+  .empty { text-align: center; padding: 36px 20px; color: var(--text-faint); font-size: 13px; }
+
+  .guide-section { margin-bottom: 20px; }
+  .guide-section h3 { font-size: 18px; font-weight: 700; margin-bottom: 8px; letter-spacing: -0.01em; }
+  .guide-section p { font-size: 14px; line-height: 1.6; color: var(--text-dim); margin-bottom: 10px; }
+  .guide-section p strong { color: var(--text); font-weight: 600; }
+  .callout {
+    background: var(--amber-glow); border-left: 3px solid var(--amber);
+    padding: 12px 14px; border-radius: 0 8px 8px 0; font-size: 13px;
+    line-height: 1.55; margin: 12px 0;
+  }
+  .callout strong { color: var(--amber); font-weight: 700; }
+  .example-box {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px; font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    line-height: 1.7; margin: 10px 0;
+  }
+  .example-box .label { color: var(--text-faint); }
+
+  .notif-toggle {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px; background: var(--bg); border-radius: 8px; margin-bottom: 12px;
+    font-size: 13px; gap: 10px; flex-wrap: wrap;
+  }
+  .notif-toggle .status { font-size: 11px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+  .notif-toggle .status.on { color: var(--green); }
+  .notif-toggle .status.off { color: var(--text-faint); }
+
+  .exit-section {
+    background: linear-gradient(135deg, rgba(90,200,255,0.05), transparent);
+    border: 1px solid var(--blue);
+  }
+  .exit-section .card-title::before { background: var(--blue); }
+
+  /* Storage indicator */
+  .storage-info {
+    font-size: 11px; color: var(--text-faint); padding: 10px 12px;
+    background: var(--bg-elev); border-radius: 8px; margin-bottom: 12px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .storage-info .ok { color: var(--green); }
+
+  /* Backup buttons */
+  .backup-row {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="install-prompt" id="installPrompt">
+    <div class="icon">📲</div>
+    <div style="flex:1;">
+      <div style="font-weight: 700; margin-bottom: 2px;">Installa l'app</div>
+      <div style="font-size: 12px; color: var(--text-dim);">Aggiungila alla home screen</div>
+    </div>
+    <button id="installBtn">Installa</button>
+    <button class="close" id="installClose">✕</button>
+  </div>
+
+  <header class="header">
+    <h1>Spread<em>Helper</em></h1>
+    <div class="sub"><span class="status-dot"></span><span id="statusText">Caricamento...</span></div>
+  </header>
+
+  <div id="alertContainer"></div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="calc">Calcola</button>
+    <button class="tab" data-tab="reminders">Trade<span id="reminderBadge"></span></button>
+    <button class="tab" data-tab="guide">Guida</button>
+    <button class="tab" data-tab="settings">⚙</button>
+  </div>
+
+  <section class="panel active" id="panel-calc">
+    <div class="card">
+      <div class="card-title">Tipo di Spread</div>
+      <div class="row single">
+        <div class="field">
+          <select id="spreadType">
+            <option value="calendar">Calendar (stessa materia, scadenze diverse)</option>
+            <option value="intercommodity">Inter-Commodity (materie diverse)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" id="legsTitle">Le Due Gambe</div>
+      <div id="calendarFields">
+        <div class="row single">
+          <div class="field">
+            <label>Sottostante</label>
+            <select id="underlying">
+              <option value="CL">CL · WTI Crude Oil</option>
+              <option value="BZ">BZ · Brent Crude</option>
+              <option value="NG">NG · Natural Gas</option>
+              <option value="ZC">ZC · Corn / Mais</option>
+              <option value="ZW">ZW · Wheat / Grano</option>
+              <option value="ZS">ZS · Soybeans / Soia</option>
+              <option value="GC">GC · Gold / Oro</option>
+              <option value="SI">SI · Silver / Argento</option>
+              <option value="HG">HG · Copper / Rame</option>
+              <option value="HO">HO · Heating Oil</option>
+              <option value="RB">RB · Gasoline RBOB</option>
+              <option value="VX">VX · VIX</option>
+              <option value="VXN">VXN · VIX Nasdaq</option>
+              <option value="CUSTOM">Altro...</option>
+            </select>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field"><label>Scadenza Vicina</label><input type="text" id="nearMonth" placeholder="LUG 2026"></div>
+          <div class="field"><label>Scadenza Lontana</label><input type="text" id="farMonth" placeholder="SET 2026"></div>
+        </div>
+        <div class="row">
+          <div class="field"><label>Prezzo Near ($)</label><input type="number" id="nearPrice" step="0.01" inputmode="decimal" placeholder="0.00"></div>
+          <div class="field"><label>Prezzo Far ($)</label><input type="number" id="farPrice" step="0.01" inputmode="decimal" placeholder="0.00"></div>
+        </div>
+      </div>
+      <div id="intercommodityFields" style="display:none;">
+        <div class="row">
+          <div class="field"><label>Gamba A</label><input type="text" id="legASymbol" placeholder="CL GIU26"></div>
+          <div class="field"><label>Gamba B</label><input type="text" id="legBSymbol" placeholder="HO GIU26"></div>
+        </div>
+        <div class="row">
+          <div class="field"><label>Prezzo A ($)</label><input type="number" id="legAPrice" step="0.01" inputmode="decimal" placeholder="0.00"></div>
+          <div class="field"><label>Prezzo B ($)</label><input type="number" id="legBPrice" step="0.01" inputmode="decimal" placeholder="0.00"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">View &amp; Quantità</div>
+      <div class="row single">
+        <div class="field">
+          <select id="view">
+            <option value="">— Seleziona aspettativa —</option>
+            <option value="seasonalgo-buy">SeasonAlgo: BUY questo spread</option>
+            <option value="seasonalgo-sell">SeasonAlgo: SELL questo spread</option>
+            <option value="widen">Si AMPLIA (Far − Near aumenta)</option>
+            <option value="narrow">Si RESTRINGE (Far − Near diminuisce)</option>
+            <option value="bull-near">Bullish sul Near</option>
+            <option value="bull-far">Bullish sul Far</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field"><label>N. Spread</label><input type="number" id="qty" min="1" value="1" inputmode="numeric"></div>
+        <div class="field">
+          <label>Point Price ($)</label>
+          <input type="number" id="pointPrice" step="1" value="1000" inputmode="numeric">
+          <span class="hint">Valore di 1 punto</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📅 Date &amp; Target Uscita</div>
+      <div class="row">
+        <div class="field">
+          <label>Data Entrata</label>
+          <input type="date" id="entryDate">
+        </div>
+        <div class="field">
+          <label>Uscita prevista</label>
+          <input type="date" id="exitDateTarget">
+        </div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Target Spread</label><input type="number" id="targetSpread" step="0.01" inputmode="decimal" placeholder="-2.00"></div>
+        <div class="field"><label>Stop Loss</label><input type="number" id="stopSpread" step="0.01" inputmode="decimal" placeholder="0.50"></div>
+      </div>
+    </div>
+
+    <div id="output"></div>
+
+    <div class="card exit-section" id="exitCard" style="display:none;">
+      <div class="card-title">Prezzi di Uscita Reali</div>
+      <p style="font-size: 13px; color: var(--text-dim); margin-bottom: 12px;">
+        Inserisci i prezzi quando esci dall'operazione.
+      </p>
+      <div class="row" id="exitFieldsCalendar">
+        <div class="field"><label>Near Uscita ($)</label><input type="number" id="nearExitPrice" step="0.01" inputmode="decimal" placeholder="0.00"></div>
+        <div class="field"><label>Far Uscita ($)</label><input type="number" id="farExitPrice" step="0.01" inputmode="decimal" placeholder="0.00"></div>
+      </div>
+      <div class="row" id="exitFieldsInter" style="display:none;">
+        <div class="field"><label>A Uscita ($)</label><input type="number" id="legAExitPrice" step="0.01" inputmode="decimal" placeholder="0.00"></div>
+        <div class="field"><label>B Uscita ($)</label><input type="number" id="legBExitPrice" step="0.01" inputmode="decimal" placeholder="0.00"></div>
+      </div>
+      <button class="btn secondary" id="calcPnlBtn" style="margin-top: 8px;">Calcola P&amp;L</button>
+      <div id="pnlOutput"></div>
+    </div>
+
+    <div class="card" id="reminderCard" style="display:none;">
+      <div class="card-title">⏰ Salva &amp; Promemoria</div>
+      <div class="row single">
+        <div class="field">
+          <label>Entra entro (data limite)</label>
+          <input type="date" id="entryDeadline">
+          <span class="hint">Notifica se ti avvicini</span>
+        </div>
+      </div>
+      <div class="row single">
+        <div class="field">
+          <label>Note</label>
+          <textarea id="reminderNotes" placeholder="Pattern stagionale, considerazioni, ecc."></textarea>
+        </div>
+      </div>
+      <button class="btn amber" id="addReminderBtn" style="margin-top: 8px;">Salva Trade</button>
+    </div>
+
+    <div class="btn-row" style="margin-top: 8px;">
+      <button class="btn" id="calcBtn">Calcola</button>
+      <button class="btn secondary" id="resetBtn">Reset</button>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-reminders">
+    <div class="card">
+      <div class="card-title">I tuoi trade salvati</div>
+      <div id="remindersList"><div class="empty">Caricamento...</div></div>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-guide">
+    <div class="card">
+      <div class="guide-section">
+        <h3>SeasonAlgo → IB</h3>
+        <p>SeasonAlgo dice <strong>"Buy XYZ(Jul) / Sell XYZ(Sep)"</strong>:</p>
+        <div class="example-box">
+          Spread = Mese Vicino − Mese Lontano<br><br>
+          Su IB:<br>
+          Leg 1: BUY contratto vicino<br>
+          Leg 2: SELL contratto lontano<br><br>
+          Click BUY o SELL sul combo
+        </div>
+        <div class="callout">
+          <strong>Esempio VXN26-VXU26:</strong> SeasonAlgo dice SELL. Crea combo Leg1=BUY VXN26, Leg2=SELL VXU26, click SELL → short Jul, long Sep.
+        </div>
+      </div>
+      <div class="guide-section">
+        <h3>Prezzo del combo</h3>
+        <p>PREZZO = Leg1 − Leg2. Se negativo, è normale.</p>
+      </div>
+      <div class="guide-section">
+        <h3>Passi su TWS</h3>
+        <div class="ib-steps">
+          <div class="ib-step"><div class="ib-step-num">1</div><div class="ib-step-body"><code>Trade → Strategy Builder</code></div></div>
+          <div class="ib-step"><div class="ib-step-num">2</div><div class="ib-step-body">Leg 1: vicino + <code>BUY</code> + ratio 1</div></div>
+          <div class="ib-step"><div class="ib-step-num">3</div><div class="ib-step-body">Leg 2: lontano + <code>SELL</code> + ratio 1</div></div>
+          <div class="ib-step"><div class="ib-step-num">4</div><div class="ib-step-body">Click BUY o SELL sul combo</div></div>
+          <div class="ib-step"><div class="ib-step-num">5</div><div class="ib-step-body"><strong>Limit order sempre</strong></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-settings">
+    <div class="card">
+      <div class="card-title">📦 Archiviazione Locale</div>
+      <div class="storage-info" id="storageInfo">Caricamento info storage...</div>
+      <div class="callout">
+        <strong>I tuoi dati sono salvati sul tuo telefono</strong> tramite IndexedDB. Restano lì anche se chiudi l'app o riavvii il telefono. Non vengono mai inviati a nessun server.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">💾 Backup &amp; Ripristino</div>
+      <p style="font-size: 13px; color: var(--text-dim); margin-bottom: 12px;">
+        Esporta tutti i tuoi trade in un file JSON che puoi salvare in cloud / mandarti via email per sicurezza.
+      </p>
+      <div class="backup-row">
+        <button class="btn secondary" id="exportBtn">📤 Esporta JSON</button>
+        <button class="btn secondary" id="importBtn">📥 Importa JSON</button>
+      </div>
+      <input type="file" id="importFile" accept=".json" style="display:none;">
+    </div>
+
+    <div class="card">
+      <div class="card-title">🔔 Notifiche</div>
+      <div class="notif-toggle">
+        <div style="flex:1;">
+          <div style="font-weight: 700; margin-bottom: 2px;">Notifiche</div>
+          <div style="font-size: 12px; color: var(--text-faint);">Quando l'app è aperta</div>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span class="status off" id="notifStatus">— OFF —</span>
+          <button class="btn secondary" id="enableNotif" style="width: auto; padding: 7px 14px; font-size: 12px;">Attiva</button>
+        </div>
+      </div>
+      <div class="callout">
+        <strong>💡 Per notifiche affidabili:</strong> usa <strong>📅 Calendario</strong> su ogni trade → scarichi .ics → lo apri con Google Calendar e il telefono ti notifica davvero.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">⚠️ Zona Pericolosa</div>
+      <button class="btn secondary" id="clearAllBtn" style="color: var(--red); border-color: var(--red); opacity: 0.8;">🗑 Cancella tutti i dati</button>
+    </div>
+  </section>
+</div>
+
+<script>
+// ============================================================
+// INDEXEDDB - persistenza vera su Android
+// ============================================================
+const DB_NAME = 'SpreadHelperDB';
+const DB_VERSION = 1;
+const STORE_TRADES = 'trades';
+
+let db = null;
+let notifPermission = 'default';
+let deferredInstallPrompt = null;
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onerror = () => reject(req.error);
+    req.onsuccess = () => resolve(req.result);
+    req.onupgradeneeded = (e) => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains(STORE_TRADES)) {
+        const store = d.createObjectStore(STORE_TRADES, { keyPath: 'id' });
+        store.createIndex('entryDeadline', 'entryDeadline', { unique: false });
+        store.createIndex('created', 'created', { unique: false });
+      }
+    };
+  });
+}
+
+async function dbPut(trade) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_TRADES, 'readwrite');
+    const store = tx.objectStore(STORE_TRADES);
+    const req = store.put(trade);
+    req.onsuccess = () => resolve(trade);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function dbGetAll() {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_TRADES, 'readonly');
+    const store = tx.objectStore(STORE_TRADES);
+    const req = store.getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function dbDelete(id) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_TRADES, 'readwrite');
+    const req = tx.objectStore(STORE_TRADES).delete(id);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function dbClear() {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_TRADES, 'readwrite');
+    const req = tx.objectStore(STORE_TRADES).clear();
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+// ============================================================
+// PWA INSTALL
+// ============================================================
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  // Mostra solo se non già dismessa
+  if (!localStorage.getItem('install-dismissed')) {
+    document.getElementById('installPrompt').classList.add('show');
+  }
+});
+
+document.getElementById('installBtn').addEventListener('click', async () => {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  const { outcome } = await deferredInstallPrompt.userChoice;
+  deferredInstallPrompt = null;
+  document.getElementById('installPrompt').classList.remove('show');
+});
+
+document.getElementById('installClose').addEventListener('click', () => {
+  document.getElementById('installPrompt').classList.remove('show');
+  localStorage.setItem('install-dismissed', '1');
+});
+
+// Detect if launched as PWA
+const isPWA = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+
+// ============================================================
+// SERVICE WORKER
+// ============================================================
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+
+// ============================================================
+// UI - tabs
+// ============================================================
+const tabs = document.querySelectorAll('.tab');
+const panels = document.querySelectorAll('.panel');
+tabs.forEach(t => t.addEventListener('click', () => {
+  tabs.forEach(x => x.classList.remove('active'));
+  panels.forEach(x => x.classList.remove('active'));
+  t.classList.add('active');
+  document.getElementById('panel-' + t.dataset.tab).classList.add('active');
+  if (t.dataset.tab === 'reminders') renderReminders();
+  if (t.dataset.tab === 'settings') updateStorageInfo();
+}));
+
+const spreadType = document.getElementById('spreadType');
+spreadType.addEventListener('change', () => {
+  const isCal = spreadType.value === 'calendar';
+  document.getElementById('calendarFields').style.display = isCal ? 'block' : 'none';
+  document.getElementById('intercommodityFields').style.display = isCal ? 'none' : 'block';
+  document.getElementById('exitFieldsCalendar').style.display = isCal ? 'grid' : 'none';
+  document.getElementById('exitFieldsInter').style.display = isCal ? 'none' : 'grid';
+  document.getElementById('legsTitle').textContent = isCal ? 'Le Due Gambe' : 'Le Due Materie';
+});
+
+let lastResult = null;
+const output = document.getElementById('output');
+const exitCard = document.getElementById('exitCard');
+const reminderCard = document.getElementById('reminderCard');
+
+function compute() {
+  const isCal = spreadType.value === 'calendar';
+  const view = document.getElementById('view').value;
+  const qty = parseInt(document.getElementById('qty').value) || 1;
+  const pointPrice = parseFloat(document.getElementById('pointPrice').value) || 1000;
+
+  let leg1Label, leg2Label, p1, p2;
+  if (isCal) {
+    const u = document.getElementById('underlying').value;
+    const near = document.getElementById('nearMonth').value.trim() || 'NEAR';
+    const far = document.getElementById('farMonth').value.trim() || 'FAR';
+    leg1Label = `${u} ${near}`;
+    leg2Label = `${u} ${far}`;
+    p1 = parseFloat(document.getElementById('nearPrice').value);
+    p2 = parseFloat(document.getElementById('farPrice').value);
+  } else {
+    leg1Label = document.getElementById('legASymbol').value.trim() || 'GAMBA A';
+    leg2Label = document.getElementById('legBSymbol').value.trim() || 'GAMBA B';
+    p1 = parseFloat(document.getElementById('legAPrice').value);
+    p2 = parseFloat(document.getElementById('legBPrice').value);
+  }
+
+  if (!view) {
+    output.innerHTML = `<div class="decision neutral">
+      <div class="decision-action" style="color: var(--text-dim); font-size: 22px;">⌁ In attesa</div>
+      <div class="decision-sub">Seleziona la tua view di mercato</div>
+    </div>`;
+    exitCard.style.display = 'none';
+    reminderCard.style.display = 'none';
+    return;
+  }
+
+  let action;
+  if (view === 'seasonalgo-buy') action = 'BUY';
+  else if (view === 'seasonalgo-sell') action = 'SELL';
+  else if (isCal) {
+    action = (view === 'widen' || view === 'bull-far') ? 'SELL' : 'BUY';
+  } else {
+    action = (view === 'widen' || view === 'bull-near') ? 'BUY' : 'SELL';
+  }
+
+  const spreadPrice = (!isNaN(p1) && !isNaN(p2)) ? (p1 - p2) : null;
+  const buyLeg = action === 'BUY' ? leg1Label : leg2Label;
+  const sellLeg = action === 'BUY' ? leg2Label : leg1Label;
+  const buyPrice = action === 'BUY' ? p1 : p2;
+  const sellPrice = action === 'BUY' ? p2 : p1;
+
+  let pricingExplain = '';
+  if (spreadPrice !== null) {
+    const sign = spreadPrice >= 0 ? '+' : '';
+    pricingExplain = `
+      <div style="margin-top: 10px;">
+        <span style="color: var(--text-faint);">Prezzo combo IB:</span> <strong class="mono">${sign}${spreadPrice.toFixed(4)}</strong>
+        ${spreadPrice < 0 ? '<div style="color: var(--amber); font-size:11px; margin-top:4px;">⚠ Negativo: Leg2 vale più di Leg1. Normale.</div>' : ''}
+        <div style="color: var(--text-faint); font-size:11px; margin-top:4px;">Esposizione: <span class="mono" style="color:var(--text);">$${(qty * pointPrice).toLocaleString()}</span> per punto</div>
+      </div>`;
+  }
+
+  const cssClass = action === 'BUY' ? 'buy' : 'sell';
+  const actionText = action === 'BUY' ? '↑ BUY' : '↓ SELL';
+  const subText = action === 'BUY' ? 'Compra il combo su IB' : 'Vendi il combo su IB';
+
+  let chart = '';
+  let payoff = '';
+  if (spreadPrice !== null) {
+    const entryDate = document.getElementById('entryDate').value;
+    const exitDateTarget = document.getElementById('exitDateTarget').value;
+    const targetSpread = parseFloat(document.getElementById('targetSpread').value);
+    const stopSpread = parseFloat(document.getElementById('stopSpread').value);
+    chart = buildTimeChart(action, spreadPrice, qty, pointPrice, leg1Label, leg2Label, entryDate, exitDateTarget, targetSpread, stopSpread);
+    payoff = buildPayoffChart(action, spreadPrice, qty, pointPrice, leg1Label, leg2Label);
+  }
+
+  output.innerHTML = `
+    <div class="decision ${cssClass}">
+      <div class="decision-action">${actionText}</div>
+      <div class="decision-sub">${subText} — ${qty} contratto${qty>1?'i':''}</div>
+      <div class="legs">
+        <div class="leg">
+          <div class="leg-label">Leg 1 (Buy)</div>
+          <div class="leg-value">${leg1Label}</div>
+          ${!isNaN(p1) ? `<div style="margin-top:4px; color: var(--text-faint); font-family: 'JetBrains Mono', monospace; font-size: 11px;">$${p1.toFixed(2)}</div>` : ''}
+        </div>
+        <div class="legs-op">−</div>
+        <div class="leg">
+          <div class="leg-label">Leg 2 (Sell)</div>
+          <div class="leg-value">${leg2Label}</div>
+          ${!isNaN(p2) ? `<div style="margin-top:4px; color: var(--text-faint); font-family: 'JetBrains Mono', monospace; font-size: 11px;">$${p2.toFixed(2)}</div>` : ''}
+        </div>
+      </div>
+      <div class="decision-detail">
+        <div><strong>Cosa significa:</strong></div>
+        <div>→ <span class="${action==='BUY'?'pos':'neg'}">${action==='BUY'?'LONG':'SHORT'}</span> ${buyLeg} ${!isNaN(buyPrice)?`<span class="mono">@ $${buyPrice.toFixed(2)}</span>`:''}</div>
+        <div>→ <span class="${action==='BUY'?'neg':'pos'}">${action==='BUY'?'SHORT':'LONG'}</span> ${sellLeg} ${!isNaN(sellPrice)?`<span class="mono">@ $${sellPrice.toFixed(2)}</span>`:''}</div>
+        ${pricingExplain}
+      </div>
+      ${chart}
+      ${payoff}
+      <div class="ib-steps" style="margin-top: 14px;">
+        <div class="ib-step"><div class="ib-step-num">A</div><div class="ib-step-body">TWS: <code>Strategy Builder</code>, Leg1=<code>BUY</code>, Leg2=<code>SELL</code></div></div>
+        <div class="ib-step"><div class="ib-step-num">B</div><div class="ib-step-body">Click <code>${action}</code> sul combo</div></div>
+        <div class="ib-step"><div class="ib-step-num">C</div><div class="ib-step-body"><strong>Limit order</strong></div></div>
+      </div>
+    </div>
+  `;
+
+  lastResult = {
+    ts: Date.now(),
+    type: isCal ? 'Calendar' : 'Inter-commodity',
+    leg1: leg1Label, leg2: leg2Label,
+    p1: isNaN(p1) ? null : p1, p2: isNaN(p2) ? null : p2,
+    spread: spreadPrice,
+    view, action, qty, pointPrice,
+    entryDate: document.getElementById('entryDate').value || null,
+    exitDateTarget: document.getElementById('exitDateTarget').value || null,
+    targetSpread: isNaN(parseFloat(document.getElementById('targetSpread').value)) ? null : parseFloat(document.getElementById('targetSpread').value),
+    stopSpread: isNaN(parseFloat(document.getElementById('stopSpread').value)) ? null : parseFloat(document.getElementById('stopSpread').value)
+  };
+
+  exitCard.style.display = (spreadPrice !== null) ? 'block' : 'none';
+  reminderCard.style.display = 'block';
+  document.getElementById('pnlOutput').innerHTML = '';
+}
+
+// ============================================================
+// CHARTS
+// ============================================================
+function buildTimeChart(action, entrySpread, qty, pointPrice, leg1, leg2, entryDateStr, exitDateStr, targetSpread, stopSpread) {
+  const W = 700, H = 320;
+  const padL = 50, padR = 14, padT = 24, padB = 50;
+  const cw = W - padL - padR;
+  const ch = H - padT - padB;
+
+  const today = new Date(); today.setHours(0,0,0,0);
+  const entryD = entryDateStr ? new Date(entryDateStr) : today;
+  const exitD = exitDateStr ? new Date(exitDateStr) : new Date(entryD.getTime() + 60*86400000);
+  const startD = new Date(entryD.getTime() - 30*86400000);
+  const endD = new Date(exitD.getTime() + 10*86400000);
+  const totalMs = endD - startD;
+
+  const points = [entrySpread];
+  if (!isNaN(targetSpread)) points.push(targetSpread);
+  if (!isNaN(stopSpread)) points.push(stopSpread);
+  let yMin = Math.min(...points), yMax = Math.max(...points);
+  if (yMin === yMax) { yMin -= 1; yMax += 1; }
+  const pad = (yMax - yMin) * 0.4;
+  yMin -= pad; yMax += pad;
+
+  const xScale = (d) => padL + ((d - startD) / totalMs) * cw;
+  const yScale = (v) => padT + ((yMax - v) / (yMax - yMin)) * ch;
+
+  const numDays = Math.floor(totalMs / 86400000);
+  const seedRandom = (seed) => { let s = seed; return () => { s = (s*9301+49297)%233280; return s/233280; }; };
+  const rand = seedRandom(Math.floor(entrySpread*1000) + numDays);
+
+  const pathDays = [];
+  for (let i = 0; i <= numDays; i++) pathDays.push(new Date(startD.getTime() + i*86400000));
+  const entryIdx = pathDays.findIndex(d => d >= entryD);
+  const exitIdx = pathDays.findIndex(d => d >= exitD);
+
+  const path = [];
+  let v = entrySpread + (rand() - 0.5) * (yMax-yMin) * 0.3;
+  for (let i = 0; i < entryIdx; i++) {
+    const drift = (entrySpread - v) / Math.max(entryIdx - i, 1);
+    v += drift + (rand() - 0.5) * (yMax-yMin) * 0.05;
+    path.push({ d: pathDays[i], v });
+  }
+  if (entryIdx >= 0) path.push({ d: pathDays[entryIdx], v: entrySpread });
+  if (entryIdx >= 0 && exitIdx > entryIdx) {
+    const finalTarget = !isNaN(targetSpread) ? targetSpread : entrySpread + (action==='BUY' ? (yMax-entrySpread)*0.5 : -(entrySpread-yMin)*0.5);
+    let cur = entrySpread;
+    for (let i = entryIdx + 1; i <= exitIdx; i++) {
+      const drift = (finalTarget - cur) / Math.max(exitIdx - i + 1, 1);
+      cur += drift + (rand() - 0.5) * (yMax-yMin) * 0.04;
+      path.push({ d: pathDays[i], v: cur });
+    }
+    for (let i = exitIdx + 1; i < pathDays.length; i++) {
+      cur += (rand() - 0.5) * (yMax-yMin) * 0.03;
+      path.push({ d: pathDays[i], v: cur });
+    }
+  }
+
+  const preEntry = path.filter(p => p.d < entryD);
+  const inTrade = path.filter(p => p.d >= entryD && p.d <= exitD);
+  const postExit = path.filter(p => p.d > exitD);
+  const pathString = (arr) => arr.map((p,i) => `${i===0?'M':'L'} ${xScale(p.d).toFixed(1)} ${yScale(p.v).toFixed(1)}`).join(' ');
+
+  let yLabels = '';
+  for (let i = 0; i <= 5; i++) {
+    const val = yMax - (i/5)*(yMax-yMin);
+    const y = yScale(val);
+    yLabels += `<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="#1f2c2e"/>`;
+    yLabels += `<text x="${padL-6}" y="${y+3}" text-anchor="end" fill="#7a8a87" font-size="10" font-family="JetBrains Mono">${val.toFixed(2)}</text>`;
+  }
+
+  let xLabels = '';
+  const months = [];
+  let curM = new Date(startD.getFullYear(), startD.getMonth(), 1);
+  while (curM < endD) { months.push(new Date(curM)); curM = new Date(curM.getFullYear(), curM.getMonth()+1, 1); }
+  months.forEach(m => {
+    const x = xScale(m);
+    if (x >= padL && x <= W-padR) {
+      xLabels += `<line x1="${x}" y1="${padT}" x2="${x}" y2="${H-padB}" stroke="#1f2c2e" stroke-dasharray="2,3"/>`;
+      xLabels += `<text x="${x}" y="${H-padB+16}" text-anchor="middle" fill="#7a8a87" font-size="10" font-family="JetBrains Mono">${m.toLocaleDateString('it-IT',{month:'short',year:'2-digit'})}</text>`;
+    }
+  });
+
+  const xEntry = xScale(entryD);
+  const xExit = xScale(exitD);
+  const yEntry = yScale(entrySpread);
+
+  let levels = '';
+  levels += `<line x1="${padL}" y1="${yEntry}" x2="${W-padR}" y2="${yEntry}" stroke="#5ac8ff" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.6"/>`;
+  levels += `<text x="${W-padR-4}" y="${yEntry-4}" text-anchor="end" fill="#5ac8ff" font-size="10" font-weight="700" font-family="JetBrains Mono">ENT ${entrySpread.toFixed(2)}</text>`;
+  if (!isNaN(targetSpread)) {
+    const yT = yScale(targetSpread);
+    levels += `<line x1="${padL}" y1="${yT}" x2="${W-padR}" y2="${yT}" stroke="#00e589" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.7"/>`;
+    levels += `<text x="${W-padR-4}" y="${yT-4}" text-anchor="end" fill="#00e589" font-size="10" font-weight="700" font-family="JetBrains Mono">TGT ${targetSpread.toFixed(2)}</text>`;
+  }
+  if (!isNaN(stopSpread)) {
+    const yS = yScale(stopSpread);
+    levels += `<line x1="${padL}" y1="${yS}" x2="${W-padR}" y2="${yS}" stroke="#ff5c70" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.7"/>`;
+    levels += `<text x="${W-padR-4}" y="${yS-4}" text-anchor="end" fill="#ff5c70" font-size="10" font-weight="700" font-family="JetBrains Mono">STP ${stopSpread.toFixed(2)}</text>`;
+  }
+
+  let dateLines = '';
+  const c = action === 'BUY' ? '#00e589' : '#ff5c70';
+  dateLines += `<line x1="${xEntry}" y1="${padT}" x2="${xEntry}" y2="${H-padB}" stroke="${c}" stroke-width="2"/>`;
+  dateLines += `<circle cx="${xEntry}" cy="${yEntry}" r="6" fill="${c}" stroke="#0a0e0d" stroke-width="2"/>`;
+  const entryLabel = entryDateStr ? new Date(entryDateStr).toLocaleDateString('it-IT',{day:'numeric',month:'short'}) : 'OGGI';
+  dateLines += `<text x="${xEntry}" y="${padT-8}" text-anchor="middle" fill="${c}" font-size="10" font-weight="700">▼ ENTRATA</text>`;
+  dateLines += `<text x="${xEntry}" y="${padT+6}" text-anchor="middle" fill="#b0bcb9" font-size="9" font-family="JetBrains Mono">${entryLabel}</text>`;
+
+  if (exitDateStr) {
+    const yExitOnPath = inTrade.length > 0 ? yScale(inTrade[inTrade.length-1].v) : yEntry;
+    dateLines += `<line x1="${xExit}" y1="${padT}" x2="${xExit}" y2="${H-padB}" stroke="#ffc04d" stroke-width="2"/>`;
+    dateLines += `<circle cx="${xExit}" cy="${yExitOnPath}" r="6" fill="#ffc04d" stroke="#0a0e0d" stroke-width="2"/>`;
+    dateLines += `<text x="${xExit}" y="${padT-8}" text-anchor="middle" fill="#ffc04d" font-size="10" font-weight="700">▼ USCITA</text>`;
+    dateLines += `<text x="${xExit}" y="${padT+6}" text-anchor="middle" fill="#b0bcb9" font-size="9" font-family="JetBrains Mono">${new Date(exitDateStr).toLocaleDateString('it-IT',{day:'numeric',month:'short'})}</text>`;
+  }
+
+  let tradeZone = '';
+  if (exitDateStr) {
+    const profit = 'rgba(0,229,137,0.08)', loss = 'rgba(255,92,112,0.08)';
+    if (action === 'BUY') {
+      tradeZone += `<rect x="${xEntry}" y="${padT}" width="${xExit-xEntry}" height="${yEntry-padT}" fill="${profit}"/>`;
+      tradeZone += `<rect x="${xEntry}" y="${yEntry}" width="${xExit-xEntry}" height="${(H-padB)-yEntry}" fill="${loss}"/>`;
+    } else {
+      tradeZone += `<rect x="${xEntry}" y="${padT}" width="${xExit-xEntry}" height="${yEntry-padT}" fill="${loss}"/>`;
+      tradeZone += `<rect x="${xEntry}" y="${yEntry}" width="${xExit-xEntry}" height="${(H-padB)-yEntry}" fill="${profit}"/>`;
+    }
+  }
+
+  let pathSvg = '';
+  if (preEntry.length > 1) pathSvg += `<path d="${pathString(preEntry)}" fill="none" stroke="#7a8a87" stroke-width="1.8" opacity="0.7"/>`;
+  if (inTrade.length > 1) pathSvg += `<path d="${pathString(inTrade)}" fill="none" stroke="${c}" stroke-width="2.5"/>`;
+  if (postExit.length > 1) pathSvg += `<path d="${pathString(postExit)}" fill="none" stroke="#7a8a87" stroke-width="1.8" opacity="0.4" stroke-dasharray="3,3"/>`;
+
+  const directionLabel = action === 'BUY'
+    ? `BUY. Guadagni se la linea SALE sopra ENTRATA.`
+    : `SELL. Guadagni se la linea SCENDE sotto ENTRATA.`;
+
+  return `
+    <div class="chart-wrap">
+      <div class="chart-title">📅 Andamento Spread nel Tempo</div>
+      <div class="chart-sub">${directionLabel}</div>
+      <svg class="chart-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
+        ${yLabels}${xLabels}${tradeZone}${levels}${pathSvg}${dateLines}
+      </svg>
+      <div class="chart-legend">
+        <div class="legend-item"><span class="legend-dot" style="background:${c};"></span> In posizione</div>
+        <div class="legend-item"><span class="legend-dot" style="background:var(--text-faint);"></span> Storico simulato</div>
+        <div class="legend-item"><span class="legend-dot" style="background:var(--blue);"></span> Entrata</div>
+        ${!isNaN(targetSpread)?'<div class="legend-item"><span class="legend-dot" style="background:var(--green);"></span> Target</div>':''}
+        ${!isNaN(stopSpread)?'<div class="legend-item"><span class="legend-dot" style="background:var(--red);"></span> Stop</div>':''}
+      </div>
+      <div style="margin-top:10px;padding:8px 10px;background:var(--bg-elev);border-radius:6px;font-size:11px;color:var(--text-dim);line-height:1.5;">
+        💡 La linea è una <strong style="color:var(--text);">simulazione visiva</strong>, non una previsione. I livelli numerici e le date sono i tuoi dati reali.
+      </div>
+    </div>
+  `;
+}
+
+function buildPayoffChart(action, entrySpread, qty, pointPrice) {
+  const range = Math.max(Math.abs(entrySpread)*0.5, 2);
+  const minS = entrySpread - range, maxS = entrySpread + range;
+  const W = 700, H = 220;
+  const padL = 50, padR = 14, padT = 14, padB = 32;
+  const cw = W-padL-padR, ch = H-padT-padB;
+
+  const pnlAt = (s) => (action==='BUY' ? (s-entrySpread) : (entrySpread-s)) * qty * pointPrice;
+  const yMax = Math.max(Math.abs(pnlAt(minS)), Math.abs(pnlAt(maxS)));
+  const yMin = -yMax;
+  const xScale = (s) => padL + ((s-minS)/(maxS-minS))*cw;
+  const yScale = (p) => padT + ((yMax-p)/(yMax-yMin))*ch;
+
+  let g = '';
+  for (let i = 0; i <= 8; i++) {
+    const p = yMax - (i/8)*(yMax-yMin);
+    const y = yScale(p);
+    const isZero = Math.abs(p) < 0.001;
+    g += `<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="${isZero?'#3a4d4f':'#1f2c2e'}" stroke-width="${isZero?1.5:1}" stroke-dasharray="${isZero?'':'2,3'}"/>`;
+    g += `<text x="${padL-6}" y="${y+3}" text-anchor="end" fill="#7a8a87" font-size="10" font-family="JetBrains Mono">${formatMoney(p)}</text>`;
+  }
+  for (let i = 0; i <= 6; i++) {
+    const s = minS + (i/6)*(maxS-minS);
+    const x = xScale(s);
+    g += `<line x1="${x}" y1="${padT}" x2="${x}" y2="${H-padB}" stroke="#1f2c2e" stroke-dasharray="2,3"/>`;
+    g += `<text x="${x}" y="${H-padB+15}" text-anchor="middle" fill="#7a8a87" font-size="10" font-family="JetBrains Mono">${s.toFixed(2)}</text>`;
+  }
+
+  const lineX1 = xScale(minS), lineY1 = yScale(pnlAt(minS));
+  const lineX2 = xScale(maxS), lineY2 = yScale(pnlAt(maxS));
+  const xEntry = xScale(entrySpread), yZero = yScale(0);
+
+  let profitPath, lossPath;
+  if (action === 'BUY') {
+    profitPath = `M ${xEntry} ${yZero} L ${lineX2} ${lineY2} L ${lineX2} ${yZero} Z`;
+    lossPath = `M ${xEntry} ${yZero} L ${lineX1} ${lineY1} L ${lineX1} ${yZero} Z`;
+  } else {
+    profitPath = `M ${xEntry} ${yZero} L ${lineX1} ${lineY1} L ${lineX1} ${yZero} Z`;
+    lossPath = `M ${xEntry} ${yZero} L ${lineX2} ${lineY2} L ${lineX2} ${yZero} Z`;
+  }
+  const c = action==='BUY' ? '#00e589' : '#ff5c70';
+
+  return `
+    <div class="chart-wrap">
+      <div class="chart-title">📈 Payoff</div>
+      <div class="chart-sub">P&L per ogni livello dello spread</div>
+      <svg class="chart-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
+        ${g}
+        <path d="${profitPath}" fill="rgba(0,229,137,0.18)"/>
+        <path d="${lossPath}" fill="rgba(255,92,112,0.18)"/>
+        <line x1="${lineX1}" y1="${lineY1}" x2="${lineX2}" y2="${lineY2}" stroke="${c}" stroke-width="2.5"/>
+        <circle cx="${xEntry}" cy="${yZero}" r="5" fill="${c}" stroke="#0a0e0d" stroke-width="2"/>
+        <text x="${xEntry}" y="${yZero-10}" text-anchor="middle" fill="${c}" font-size="10" font-weight="700">ENTRATA</text>
+      </svg>
+    </div>
+  `;
+}
+
+function formatMoney(v) {
+  if (Math.abs(v) >= 1000) return (v >= 0 ? '+' : '') + '$' + (v/1000).toFixed(1) + 'k';
+  return (v >= 0 ? '+' : '') + '$' + v.toFixed(0);
+}
+
+// ============================================================
+// P&L CALC
+// ============================================================
+document.getElementById('calcPnlBtn').addEventListener('click', () => {
+  if (!lastResult) return;
+  const isCal = lastResult.type === 'Calendar';
+  let e1, e2;
+  if (isCal) {
+    e1 = parseFloat(document.getElementById('nearExitPrice').value);
+    e2 = parseFloat(document.getElementById('farExitPrice').value);
+  } else {
+    e1 = parseFloat(document.getElementById('legAExitPrice').value);
+    e2 = parseFloat(document.getElementById('legBExitPrice').value);
+  }
+  if (isNaN(e1) || isNaN(e2)) {
+    document.getElementById('pnlOutput').innerHTML = '<div class="callout" style="margin-top:12px;"><strong>Inserisci entrambi i prezzi</strong></div>';
+    return;
+  }
+  const exitSpread = e1 - e2;
+  const moveSpread = exitSpread - lastResult.spread;
+  const pnl = (lastResult.action === 'BUY' ? moveSpread : -moveSpread) * lastResult.qty * lastResult.pointPrice;
+  let pnlLeg1, pnlLeg2;
+  if (lastResult.action === 'BUY') {
+    pnlLeg1 = (e1 - lastResult.p1) * lastResult.qty * lastResult.pointPrice;
+    pnlLeg2 = (lastResult.p2 - e2) * lastResult.qty * lastResult.pointPrice;
+  } else {
+    pnlLeg1 = (lastResult.p1 - e1) * lastResult.qty * lastResult.pointPrice;
+    pnlLeg2 = (e2 - lastResult.p2) * lastResult.qty * lastResult.pointPrice;
+  }
+  const pnlClass = pnl >= 0 ? 'pos' : 'neg';
+
+  document.getElementById('pnlOutput').innerHTML = `
+    <div class="pnl-panel">
+      <div class="pnl-row"><span class="label">Spread entrata</span><span class="val">${lastResult.spread.toFixed(4)}</span></div>
+      <div class="pnl-row"><span class="label">Spread uscita</span><span class="val">${exitSpread.toFixed(4)}</span></div>
+      <div class="pnl-row"><span class="label">Movimento</span><span class="val ${moveSpread>=0?'pos':'neg'}">${moveSpread>=0?'+':''}${moveSpread.toFixed(4)}</span></div>
+      <div class="pnl-row"><span class="label">P&L ${lastResult.leg1}</span><span class="val ${pnlLeg1>=0?'pos':'neg'}">${pnlLeg1>=0?'+':''}$${pnlLeg1.toFixed(2)}</span></div>
+      <div class="pnl-row"><span class="label">P&L ${lastResult.leg2}</span><span class="val ${pnlLeg2>=0?'pos':'neg'}">${pnlLeg2>=0?'+':''}$${pnlLeg2.toFixed(2)}</span></div>
+      <div class="pnl-row total"><span class="label">P&L TOTALE</span><span class="val ${pnlClass}">${pnl>=0?'+':''}$${pnl.toFixed(2)}</span></div>
+    </div>
+  `;
+  lastResult.exitP1 = e1; lastResult.exitP2 = e2; lastResult.exitSpread = exitSpread; lastResult.pnl = pnl;
+});
+
+document.getElementById('calcBtn').addEventListener('click', compute);
+document.getElementById('resetBtn').addEventListener('click', () => {
+  document.querySelectorAll('input').forEach(i => {
+    if (i.type !== 'date') i.value = i.id === 'qty' ? '1' : (i.id === 'pointPrice' ? '1000' : '');
+    else i.value = '';
+  });
+  document.getElementById('view').value = '';
+  document.getElementById('reminderNotes').value = '';
+  output.innerHTML = '';
+  document.getElementById('pnlOutput').innerHTML = '';
+  exitCard.style.display = 'none';
+  reminderCard.style.display = 'none';
+  lastResult = null;
+});
+
+// ============================================================
+// SAVE TRADE
+// ============================================================
+document.getElementById('addReminderBtn').addEventListener('click', async () => {
+  if (!lastResult) { alert('Calcola prima la decisione'); return; }
+  const entryDeadline = document.getElementById('entryDeadline').value;
+  const notes = document.getElementById('reminderNotes').value.trim();
+  if (!entryDeadline) { alert('Inserisci la data limite di entrata'); return; }
+
+  const trade = {
+    ...lastResult,
+    id: 'rem_' + Date.now(),
+    entryDeadline, notes,
+    created: Date.now()
+  };
+  try {
+    await dbPut(trade);
+    const btn = document.getElementById('addReminderBtn');
+    btn.textContent = '✓ Salvato!';
+    setTimeout(() => { btn.textContent = 'Salva Trade'; }, 1800);
+    await updateBadge();
+    await checkAlerts();
+  } catch (e) { alert('Errore salvataggio: ' + e.message); }
+});
+
+// ============================================================
+// RENDER REMINDERS
+// ============================================================
+function getDaysLeft(dateStr) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const target = new Date(dateStr); target.setHours(0,0,0,0);
+  return Math.ceil((target - today) / 86400000);
+}
+function getUrgency(days) {
+  if (days < 0) return 'expired';
+  if (days <= 1) return 'urgent';
+  if (days <= 3) return 'warning';
+  return 'ok';
+}
+
+async function loadTrades() {
+  try {
+    const items = await dbGetAll();
+    return items.sort((a,b) => new Date(a.entryDeadline) - new Date(b.entryDeadline));
+  } catch (e) { return []; }
+}
+
+async function renderReminders() {
+  const list = document.getElementById('remindersList');
+  const items = await loadTrades();
+  if (items.length === 0) {
+    list.innerHTML = '<div class="empty">Nessun trade salvato.<br>Crea il tuo primo dal tab Calcola.</div>';
+    return;
+  }
+  list.innerHTML = items.map(r => {
+    const days = getDaysLeft(r.entryDeadline);
+    const urgency = getUrgency(days);
+    let label, text;
+    if (days < 0) { label = '×'; text = `Scaduto ${Math.abs(days)}g fa`; }
+    else if (days === 0) { label = 'OGGI'; text = 'Entra oggi!'; }
+    else if (days === 1) { label = '1'; text = 'Domani'; }
+    else { label = `${days}`; text = `${days} giorni`; }
+    const deadlineFmt = new Date(r.entryDeadline).toLocaleDateString('it-IT', {day:'2-digit',month:'short',year:'numeric'});
+    const exitFmt = r.exitDateTarget ? new Date(r.exitDateTarget).toLocaleDateString('it-IT',{day:'2-digit',month:'short'}) : null;
+    return `
+      <div class="reminder-item ${urgency}">
+        <div class="reminder-head">
+          <div style="min-width:0;flex:1;">
+            <div class="reminder-name">${r.leg1} / ${r.leg2}</div>
+            <div class="reminder-meta">${r.type} · ${r.qty}x · entrata @ ${r.spread!==null?r.spread.toFixed(4):'—'}</div>
+          </div>
+          <div class="reminder-action ${r.action.toLowerCase()}">${r.action}</div>
+        </div>
+        <div class="countdown ${urgency}">
+          <div class="days">${label}</div>
+          <div class="label">
+            <div>${text}</div>
+            <div style="color:var(--text-faint);font-size:10px;margin-top:2px;">Entro: ${deadlineFmt}${exitFmt?` · Uscita: ${exitFmt}`:''}</div>
+          </div>
+        </div>
+        ${r.notes ? `<div class="reminder-notes">"${r.notes}"</div>` : ''}
+        <div class="reminder-controls">
+          <button class="icon-btn cal" data-action="ics" data-id="${r.id}">📅 Calendario</button>
+          <button class="icon-btn" data-action="view" data-id="${r.id}">👁 Dettagli</button>
+          <button class="icon-btn danger" data-action="delete" data-id="${r.id}">✕</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  list.querySelectorAll('.icon-btn').forEach(b => {
+    b.addEventListener('click', () => handleAction(b.dataset.action, b.dataset.id, items));
+  });
+}
+
+async function handleAction(action, id, items) {
+  const r = items.find(x => x.id === id);
+  if (!r) return;
+  if (action === 'delete') {
+    if (confirm('Eliminare questo trade?')) {
+      await dbDelete(id); renderReminders(); updateBadge(); checkAlerts();
+    }
+  } else if (action === 'ics') downloadICS(r);
+  else if (action === 'view') showDetails(r);
+}
+
+function downloadICS(r) {
+  const d = new Date(r.entryDeadline);
+  const dStr = d.toISOString().slice(0,10).replace(/-/g,'');
+  const dEnd = new Date(d.getTime()+86400000).toISOString().slice(0,10).replace(/-/g,'');
+  const summary = `${r.action} Spread: ${r.leg1} / ${r.leg2}`;
+  const description = [
+    `Azione IB: ${r.action}`, `Tipo: ${r.type}`, `Quantita: ${r.qty}`,
+    `Spread entrata: ${r.spread!==null?r.spread.toFixed(4):'N/A'}`,
+    r.targetSpread!==null?`Target: ${r.targetSpread.toFixed(4)}`:'',
+    r.stopSpread!==null?`Stop: ${r.stopSpread.toFixed(4)}`:'',
+    r.exitDateTarget?`Uscita prevista: ${new Date(r.exitDateTarget).toLocaleDateString('it-IT')}`:'',
+    r.notes?`Note: ${r.notes}`:'',''
+  ].filter(Boolean).join('\\n');
+  const dtstamp = new Date().toISOString().replace(/[-:.]/g,'').slice(0,15)+'Z';
+  const ics = [
+    'BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//SpreadHelper//IT',
+    'BEGIN:VEVENT',`UID:${r.id}@spreadhelper`,`DTSTAMP:${dtstamp}`,
+    `DTSTART;VALUE=DATE:${dStr}`,`DTEND;VALUE=DATE:${dEnd}`,
+    `SUMMARY:${summary}`,`DESCRIPTION:${description}`,
+    'BEGIN:VALARM','TRIGGER:-P1D','ACTION:DISPLAY',`DESCRIPTION:Domani: ${summary}`,'END:VALARM',
+    'BEGIN:VALARM','TRIGGER:-PT2H','ACTION:DISPLAY',`DESCRIPTION:Tra 2h: ${summary}`,'END:VALARM',
+    'END:VEVENT','END:VCALENDAR'
+  ].join('\r\n');
+  const blob = new Blob([ics], { type: 'text/calendar' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `spread_${r.leg1.replace(/\s+/g,'_')}_${r.leg2.replace(/\s+/g,'_')}.ics`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function showDetails(r) {
+  const lines = [`${r.action} ${r.leg1} / ${r.leg2}`, ``,
+    `Tipo: ${r.type}`, `Quantità: ${r.qty}`, `Point: $${r.pointPrice}`];
+  if (r.spread !== null) lines.push(`Spread entrata: ${r.spread.toFixed(4)}`);
+  if (r.targetSpread !== null) lines.push(`Target: ${r.targetSpread.toFixed(4)}`);
+  if (r.stopSpread !== null) lines.push(`Stop: ${r.stopSpread.toFixed(4)}`);
+  if (r.exitSpread !== null && r.exitSpread !== undefined) lines.push(`Spread uscita: ${r.exitSpread.toFixed(4)}`);
+  if (r.pnl !== null && r.pnl !== undefined) lines.push(`P&L: ${r.pnl>=0?'+':''}$${r.pnl.toFixed(2)}`);
+  lines.push('');
+  lines.push(`Entro: ${new Date(r.entryDeadline).toLocaleDateString('it-IT')}`);
+  if (r.exitDateTarget) lines.push(`Uscita prevista: ${new Date(r.exitDateTarget).toLocaleDateString('it-IT')}`);
+  if (r.notes) lines.push('', `Note: ${r.notes}`);
+  alert(lines.join('\n'));
+}
+
+async function updateBadge() {
+  const items = await loadTrades();
+  const urgent = items.filter(r => { const d = getDaysLeft(r.entryDeadline); return d >= 0 && d <= 3; }).length;
+  document.getElementById('reminderBadge').innerHTML = urgent > 0 ? `<span class="badge">${urgent}</span>` : '';
+}
+
+async function checkAlerts() {
+  const items = await loadTrades();
+  const container = document.getElementById('alertContainer');
+  const urgent = items.filter(r => { const d = getDaysLeft(r.entryDeadline); return d >= 0 && d <= 1; });
+  const warning = items.filter(r => { const d = getDaysLeft(r.entryDeadline); return d > 1 && d <= 3; });
+  let html = '';
+  if (urgent.length > 0) {
+    const r = urgent[0]; const d = getDaysLeft(r.entryDeadline);
+    html = `<div class="alert-bar urgent"><div class="alert-icon">🚨</div><div class="alert-msg"><strong>${d===0?'OGGI':'DOMANI'}</strong>: ${r.action} ${r.leg1}/${r.leg2}${urgent.length>1?` <span style="color:var(--text-dim);">+${urgent.length-1}</span>`:''}</div></div>`;
+    if (notifPermission === 'granted') {
+      try { new Notification(`Spread ${d===0?'OGGI':'DOMANI'}`, { body: `${r.action} ${r.leg1}/${r.leg2}`, tag: r.id, icon: 'icon-192.png' }); } catch(e) {}
+    }
+  } else if (warning.length > 0) {
+    const r = warning[0]; const d = getDaysLeft(r.entryDeadline);
+    html = `<div class="alert-bar"><div class="alert-icon">⏰</div><div class="alert-msg"><strong>Tra ${d}g</strong>: ${r.action} ${r.leg1}/${r.leg2}${warning.length>1?` <span style="color:var(--text-dim);">+${warning.length-1}</span>`:''}</div></div>`;
+  }
+  container.innerHTML = html;
+}
+
+// ============================================================
+// SETTINGS - Storage / Backup / Notifiche
+// ============================================================
+async function updateStorageInfo() {
+  const el = document.getElementById('storageInfo');
+  try {
+    const trades = await dbGetAll();
+    let est = '';
+    if (navigator.storage && navigator.storage.estimate) {
+      const e = await navigator.storage.estimate();
+      const usedMB = (e.usage / (1024*1024)).toFixed(2);
+      const quotaMB = (e.quota / (1024*1024)).toFixed(0);
+      est = ` · ${usedMB} MB usati su ${quotaMB} MB disponibili`;
+    }
+    el.innerHTML = `<span class="ok">●</span> <strong>${trades.length}</strong> trade salvati localmente${est}`;
+  } catch (e) {
+    el.innerHTML = `<span style="color:var(--red);">●</span> Errore: ${e.message}`;
+  }
+}
+
+document.getElementById('exportBtn').addEventListener('click', async () => {
+  const trades = await dbGetAll();
+  const data = { version: 1, exported: new Date().toISOString(), trades };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `spread-helper-backup-${new Date().toISOString().slice(0,10)}.json`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById('importBtn').addEventListener('click', () => {
+  document.getElementById('importFile').click();
+});
+document.getElementById('importFile').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if (!data.trades || !Array.isArray(data.trades)) throw new Error('Formato non valido');
+    if (!confirm(`Importare ${data.trades.length} trade? I trade esistenti con stesso ID verranno sovrascritti.`)) return;
+    for (const t of data.trades) await dbPut(t);
+    alert(`✓ Importati ${data.trades.length} trade`);
+    updateStorageInfo();
+    updateBadge();
+  } catch (err) {
+    alert('Errore import: ' + err.message);
+  }
+});
+
+document.getElementById('clearAllBtn').addEventListener('click', async () => {
+  if (!confirm('Sicuro? Cancellerai TUTTI i trade salvati. Operazione irreversibile.')) return;
+  if (!confirm('Davvero sicuro?')) return;
+  await dbClear();
+  alert('Tutti i dati cancellati.');
+  updateStorageInfo();
+  updateBadge();
+  renderReminders();
+});
+
+document.getElementById('enableNotif').addEventListener('click', async () => {
+  if (!('Notification' in window)) { alert('Notifiche non supportate'); return; }
+  try {
+    const perm = await Notification.requestPermission();
+    notifPermission = perm; updateNotifStatus();
+    if (perm === 'granted') new Notification('SpreadHelper attivo', { body: 'Notifiche scadenze attive', icon: 'icon-192.png' });
+  } catch(e) {}
+});
+
+function updateNotifStatus() {
+  const s = document.getElementById('notifStatus');
+  const btn = document.getElementById('enableNotif');
+  if (notifPermission === 'granted') { s.textContent = '— ON —'; s.className = 'status on'; btn.style.display = 'none'; }
+  else if (notifPermission === 'denied') { s.textContent = '— BLOCCATO —'; s.className = 'status off'; btn.textContent = 'Vai a impostazioni'; }
+  else { s.textContent = '— OFF —'; s.className = 'status off'; }
+}
+
+// ============================================================
+// REQUEST PERSISTENT STORAGE (importante su Android!)
+// ============================================================
+async function requestPersistent() {
+  if (navigator.storage && navigator.storage.persist) {
+    try {
+      const granted = await navigator.storage.persist();
+      console.log('Persistent storage:', granted);
+    } catch(e) {}
+  }
+}
+
+// ============================================================
+// INIT
+// ============================================================
+(async function init() {
+  try {
+    db = await openDB();
+    document.getElementById('statusText').textContent = isPWA ? 'App installata · Database OK' : 'Browser · Database OK';
+  } catch (e) {
+    document.getElementById('statusText').textContent = 'Errore database: ' + e.message;
+    return;
+  }
+  await requestPersistent();
+  if ('Notification' in window) { notifPermission = Notification.permission; updateNotifStatus(); }
+  await updateBadge();
+  await checkAlerts();
+  setInterval(checkAlerts, 60000);
+})();
+</script>
+</body>
+</html>
