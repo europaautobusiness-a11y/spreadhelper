@@ -307,6 +307,35 @@
   }
   .exit-section .card-title::before { background: var(--blue); }
 
+  /* Input con pulsante segno ± */
+  .input-with-sign {
+    display: grid;
+    grid-template-columns: 1fr 44px;
+    gap: 6px;
+    align-items: stretch;
+  }
+  .sign-btn {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
+  .sign-btn:active { transform: scale(0.94); }
+  .sign-btn.negative {
+    background: var(--red-glow);
+    color: var(--red);
+    border-color: var(--red);
+  }
+
   /* Storage indicator */
   .storage-info {
     font-size: 11px; color: var(--text-faint); padding: 10px 12px;
@@ -386,8 +415,50 @@
           </div>
         </div>
         <div class="row">
-          <div class="field"><label>Scadenza Vicina</label><input type="text" id="nearMonth" placeholder="LUG 2026"></div>
-          <div class="field"><label>Scadenza Lontana</label><input type="text" id="farMonth" placeholder="SET 2026"></div>
+          <div class="field">
+            <label>Scadenza Vicina (Near)</label>
+            <div style="display:grid;grid-template-columns:1fr 90px;gap:6px;">
+              <select id="nearMonthSel">
+                <option value="">— Mese —</option>
+                <option value="F|GEN">F · Gennaio</option>
+                <option value="G|FEB">G · Febbraio</option>
+                <option value="H|MAR">H · Marzo</option>
+                <option value="J|APR">J · Aprile</option>
+                <option value="K|MAG">K · Maggio</option>
+                <option value="M|GIU">M · Giugno</option>
+                <option value="N|LUG">N · Luglio</option>
+                <option value="Q|AGO">Q · Agosto</option>
+                <option value="U|SET">U · Settembre</option>
+                <option value="V|OTT">V · Ottobre</option>
+                <option value="X|NOV">X · Novembre</option>
+                <option value="Z|DIC">Z · Dicembre</option>
+              </select>
+              <select id="nearYearSel"></select>
+            </div>
+            <span class="hint" id="nearCodeHint" style="font-family:'JetBrains Mono',monospace;color:var(--blue);">—</span>
+          </div>
+          <div class="field">
+            <label>Scadenza Lontana (Far)</label>
+            <div style="display:grid;grid-template-columns:1fr 90px;gap:6px;">
+              <select id="farMonthSel">
+                <option value="">— Mese —</option>
+                <option value="F|GEN">F · Gennaio</option>
+                <option value="G|FEB">G · Febbraio</option>
+                <option value="H|MAR">H · Marzo</option>
+                <option value="J|APR">J · Aprile</option>
+                <option value="K|MAG">K · Maggio</option>
+                <option value="M|GIU">M · Giugno</option>
+                <option value="N|LUG">N · Luglio</option>
+                <option value="Q|AGO">Q · Agosto</option>
+                <option value="U|SET">U · Settembre</option>
+                <option value="V|OTT">V · Ottobre</option>
+                <option value="X|NOV">X · Novembre</option>
+                <option value="Z|DIC">Z · Dicembre</option>
+              </select>
+              <select id="farYearSel"></select>
+            </div>
+            <span class="hint" id="farCodeHint" style="font-family:'JetBrains Mono',monospace;color:var(--blue);">—</span>
+          </div>
         </div>
         <div class="row">
           <div class="field"><label>Prezzo Near ($)</label><input type="number" id="nearPrice" step="0.01" inputmode="decimal" placeholder="0.00"></div>
@@ -396,12 +467,21 @@
       </div>
       <div id="intercommodityFields" style="display:none;">
         <div class="row">
-          <div class="field"><label>Gamba A</label><input type="text" id="legASymbol" placeholder="CL GIU26"></div>
-          <div class="field"><label>Gamba B</label><input type="text" id="legBSymbol" placeholder="HO GIU26"></div>
+          <div class="field">
+            <label>Gamba A (codice + scadenza)</label>
+            <input type="text" id="legASymbol" placeholder="es. CLM26 (Giugno 2026)">
+          </div>
+          <div class="field">
+            <label>Gamba B (codice + scadenza)</label>
+            <input type="text" id="legBSymbol" placeholder="es. HOM26 (Giugno 2026)">
+          </div>
         </div>
         <div class="row">
           <div class="field"><label>Prezzo A ($)</label><input type="number" id="legAPrice" step="0.01" inputmode="decimal" placeholder="0.00"></div>
           <div class="field"><label>Prezzo B ($)</label><input type="number" id="legBPrice" step="0.01" inputmode="decimal" placeholder="0.00"></div>
+        </div>
+        <div style="font-size:11px;color:var(--text-faint);margin-top:4px;line-height:1.5;">
+          <strong style="color:var(--text-dim);">Codifica mesi CME:</strong> F=Gen, G=Feb, H=Mar, J=Apr, K=Mag, M=Giu, N=Lug, Q=Ago, U=Set, V=Ott, X=Nov, Z=Dic
         </div>
       </div>
     </div>
@@ -444,8 +524,22 @@
         </div>
       </div>
       <div class="row">
-        <div class="field"><label>Target Spread</label><input type="number" id="targetSpread" step="0.01" inputmode="decimal" placeholder="-2.00"></div>
-        <div class="field"><label>Stop Loss</label><input type="number" id="stopSpread" step="0.01" inputmode="decimal" placeholder="0.50"></div>
+        <div class="field">
+          <label>Target Spread</label>
+          <div class="input-with-sign">
+            <input type="number" id="targetSpread" step="0.01" inputmode="decimal" placeholder="2.00">
+            <button type="button" class="sign-btn" data-target="targetSpread" aria-label="Cambia segno">+</button>
+          </div>
+          <span class="hint">Tap ± per rendere negativo</span>
+        </div>
+        <div class="field">
+          <label>Stop Loss</label>
+          <div class="input-with-sign">
+            <input type="number" id="stopSpread" step="0.01" inputmode="decimal" placeholder="0.50">
+            <button type="button" class="sign-btn" data-target="stopSpread" aria-label="Cambia segno">+</button>
+          </div>
+          <span class="hint">Tap ± per rendere negativo</span>
+        </div>
       </div>
     </div>
 
@@ -709,6 +803,77 @@ const output = document.getElementById('output');
 const exitCard = document.getElementById('exitCard');
 const reminderCard = document.getElementById('reminderCard');
 
+// ============================================================
+// Popolazione dropdown anni + listener codice CME live
+// ============================================================
+(function populateYears() {
+  const curYear = new Date().getFullYear();
+  const years = [];
+  for (let y = curYear; y <= curYear + 5; y++) years.push(y);
+  ['nearYearSel', 'farYearSel'].forEach(id => {
+    const sel = document.getElementById(id);
+    sel.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
+  });
+})();
+
+function updateCMECodeHints() {
+  const u = document.getElementById('underlying').value;
+  ['near', 'far'].forEach(prefix => {
+    const monthVal = document.getElementById(prefix + 'MonthSel').value;
+    const yearVal = document.getElementById(prefix + 'YearSel').value;
+    const hint = document.getElementById(prefix + 'CodeHint');
+    if (monthVal && yearVal) {
+      const code = monthVal.split('|')[0];
+      const yr2 = String(yearVal).slice(-2);
+      hint.textContent = `Codice IB: ${u}${code}${yr2}`;
+    } else {
+      hint.textContent = '—';
+    }
+  });
+}
+
+['underlying','nearMonthSel','nearYearSel','farMonthSel','farYearSel'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('change', updateCMECodeHints);
+});
+
+// ============================================================
+// Pulsanti ± per cambiare segno (workaround tastiere mobile)
+// ============================================================
+function updateSignButton(input, btn) {
+  const v = input.value;
+  if (v && parseFloat(v) < 0) {
+    btn.textContent = '−';
+    btn.classList.add('negative');
+  } else {
+    btn.textContent = '+';
+    btn.classList.remove('negative');
+  }
+}
+
+document.querySelectorAll('.sign-btn').forEach(btn => {
+  const input = document.getElementById(btn.dataset.target);
+  if (!input) return;
+
+  // Click sul pulsante: inverte il segno
+  btn.addEventListener('click', () => {
+    const v = input.value.trim();
+    if (!v || v === '-' || v === '+') {
+      // se vuoto, pre-imposto "-" per la prossima cifra
+      input.value = btn.classList.contains('negative') ? '' : '-';
+    } else {
+      const n = parseFloat(v);
+      if (!isNaN(n)) input.value = (-n).toString();
+    }
+    updateSignButton(input, btn);
+    input.focus();
+  });
+
+  // L'input cambia da solo: aggiorno l'aspetto del pulsante
+  input.addEventListener('input', () => updateSignButton(input, btn));
+  input.addEventListener('change', () => updateSignButton(input, btn));
+});
+
 function compute() {
   const isCal = spreadType.value === 'calendar';
   const view = document.getElementById('view').value;
@@ -718,10 +883,20 @@ function compute() {
   let leg1Label, leg2Label, p1, p2;
   if (isCal) {
     const u = document.getElementById('underlying').value;
-    const near = document.getElementById('nearMonth').value.trim() || 'NEAR';
-    const far = document.getElementById('farMonth').value.trim() || 'FAR';
-    leg1Label = `${u} ${near}`;
-    leg2Label = `${u} ${far}`;
+    const nearVal = document.getElementById('nearMonthSel').value;
+    const farVal = document.getElementById('farMonthSel').value;
+    const nearYear = document.getElementById('nearYearSel').value;
+    const farYear = document.getElementById('farYearSel').value;
+    const nearLabel = nearVal ? nearVal.split('|')[1] + ' ' + nearYear : 'NEAR';
+    const farLabel = farVal ? farVal.split('|')[1] + ' ' + farYear : 'FAR';
+    const nearCode = nearVal ? nearVal.split('|')[0] : '';
+    const farCode = farVal ? farVal.split('|')[0] : '';
+    // Costruisco etichetta: es. "VXN26 (LUG 2026)"
+    const yr2 = (y) => String(y).slice(-2);
+    const nearCMEcode = nearCode && nearYear ? `${u}${nearCode}${yr2(nearYear)}` : '';
+    const farCMEcode = farCode && farYear ? `${u}${farCode}${yr2(farYear)}` : '';
+    leg1Label = nearCMEcode ? `${nearCMEcode} (${nearLabel})` : `${u} ${nearLabel}`;
+    leg2Label = farCMEcode ? `${farCMEcode} (${farLabel})` : `${u} ${farLabel}`;
     p1 = parseFloat(document.getElementById('nearPrice').value);
     p2 = parseFloat(document.getElementById('farPrice').value);
   } else {
@@ -1107,6 +1282,9 @@ document.getElementById('resetBtn').addEventListener('click', () => {
   });
   document.getElementById('view').value = '';
   document.getElementById('reminderNotes').value = '';
+  document.getElementById('nearMonthSel').value = '';
+  document.getElementById('farMonthSel').value = '';
+  updateCMECodeHints();
   output.innerHTML = '';
   document.getElementById('pnlOutput').innerHTML = '';
   exitCard.style.display = 'none';
