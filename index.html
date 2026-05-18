@@ -486,13 +486,16 @@
   }
   .modal-actions {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: repeat(4, 1fr);
     gap: 8px;
     margin-bottom: 14px;
   }
   .modal-actions .btn {
-    padding: 12px 8px;
-    font-size: 12px;
+    padding: 12px 6px;
+    font-size: 11px;
+  }
+  @media (max-width: 600px) {
+    .modal-actions { grid-template-columns: 1fr 1fr; }
   }
   /* Saved badge indicator */
   .editing-badge {
@@ -520,8 +523,104 @@
     cursor: pointer;
     margin-left: auto;
   }
-  @media (max-width: 520px) {
-    .modal-actions { grid-template-columns: 1fr; }
+
+  /* Margin & Risk panel */
+  .margin-section {
+    background: linear-gradient(135deg, rgba(255,192,77,0.04), transparent);
+    border: 1px solid #4a3d2a;
+    border-radius: 10px;
+    padding: 14px;
+    margin-top: 14px;
+  }
+  .margin-section .card-title::before { background: var(--amber); }
+  .risk-gauge {
+    margin-top: 12px;
+    padding: 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .risk-bar {
+    height: 8px;
+    background: var(--bg-elev);
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 8px 0;
+    position: relative;
+  }
+  .risk-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.4s ease;
+  }
+  .risk-bar-fill.safe { background: linear-gradient(90deg, var(--green), #00b870); }
+  .risk-bar-fill.warning { background: linear-gradient(90deg, var(--amber), #ff9933); }
+  .risk-bar-fill.danger { background: linear-gradient(90deg, var(--red), #cc0033); }
+  .risk-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .risk-label .val {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+  }
+  .risk-label .val.safe { color: var(--green); }
+  .risk-label .val.warning { color: var(--amber); }
+  .risk-label .val.danger { color: var(--red); }
+  .risk-rows .pnl-row { font-size: 12px; padding: 6px 0; }
+  .liquidation-alert {
+    margin-top: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .liquidation-alert.critical {
+    background: var(--red-glow);
+    border: 1px solid var(--red);
+    color: var(--text);
+  }
+  .liquidation-alert.critical strong { color: var(--red); }
+  .liquidation-alert.warn {
+    background: var(--amber-glow);
+    border: 1px solid var(--amber);
+  }
+  .liquidation-alert.warn strong { color: var(--amber); }
+  .liquidation-alert.ok {
+    background: var(--green-glow);
+    border: 1px solid var(--green);
+    opacity: 0.85;
+  }
+  .liquidation-alert.ok strong { color: var(--green); }
+
+  /* Standalone risk calculator */
+  .standalone-result {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-top: 12px;
+  }
+  .big-number {
+    font-size: 36px;
+    font-weight: 800;
+    line-height: 1;
+    text-align: center;
+    margin: 8px 0;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .big-number.safe { color: var(--green); }
+  .big-number.warning { color: var(--amber); }
+  .big-number.danger { color: var(--red); }
+  .big-number-label {
+    text-align: center;
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-weight: 700;
   }
 
   /* Storage indicator */
@@ -738,6 +837,37 @@
       </div>
     </div>
 
+    <div class="card margin-section">
+      <div class="card-title">⚠️ Margine &amp; Rischio Liquidazione (opzionale)</div>
+      <p style="font-size: 12px; color: var(--text-dim); margin-bottom: 12px;">
+        Inserisci capitale e margine per vedere quanto puoi muoverti prima della margin call.
+      </p>
+      <div class="row">
+        <div class="field">
+          <label>Capitale Conto IB ($)</label>
+          <input type="number" id="accountCapital" step="100" inputmode="decimal" placeholder="10000">
+          <span class="hint">Liquidità totale</span>
+        </div>
+        <div class="field">
+          <label>Margine SPAN ($/spread)</label>
+          <input type="number" id="spanMargin" step="10" inputmode="decimal" placeholder="800">
+          <span class="hint">Lo vedi su TWS</span>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>Maintenance %</label>
+          <input type="number" id="maintenancePct" step="1" inputmode="numeric" value="85" min="50" max="100">
+          <span class="hint">% di Initial (default 85)</span>
+        </div>
+        <div class="field">
+          <label>Rischio max per trade %</label>
+          <input type="number" id="riskPct" step="0.5" inputmode="decimal" value="2" min="0.1" max="20">
+          <span class="hint">Della liquidità totale</span>
+        </div>
+      </div>
+    </div>
+
     <div id="output"></div>
 
     <div class="card exit-section" id="exitCard" style="display:none;">
@@ -843,6 +973,48 @@
     </div>
 
     <div class="card">
+      <div class="card-title">🧮 Quanti contratti posso aprire?</div>
+      <p style="font-size: 13px; color: var(--text-dim); margin-bottom: 12px;">
+        Calcolatore di position sizing. Inserisci i parametri e ti dico il massimo di contratti che puoi tenere in sicurezza.
+      </p>
+      <div class="row">
+        <div class="field">
+          <label>Capitale Conto ($)</label>
+          <input type="number" id="psCapital" step="100" inputmode="decimal" placeholder="10000">
+        </div>
+        <div class="field">
+          <label>Margine per spread ($)</label>
+          <input type="number" id="psMargin" step="10" inputmode="decimal" placeholder="800">
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>Stop Loss (punti)</label>
+          <input type="number" id="psStop" step="0.25" inputmode="decimal" placeholder="2.00">
+          <span class="hint">Quanti punti perdi se stoppi</span>
+        </div>
+        <div class="field">
+          <label>Point Price ($)</label>
+          <input type="number" id="psPointPrice" step="1" inputmode="decimal" placeholder="50" value="50">
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>Rischio max %</label>
+          <input type="number" id="psRiskPct" step="0.5" inputmode="decimal" value="2" min="0.1" max="20">
+          <span class="hint">% del capitale per trade</span>
+        </div>
+        <div class="field">
+          <label>Margine max impegnabile %</label>
+          <input type="number" id="psMarginPct" step="5" inputmode="decimal" value="40" min="5" max="100">
+          <span class="hint">% capitale in margin totale</span>
+        </div>
+      </div>
+      <button class="btn" id="psCalcBtn" style="margin-top: 8px;">Calcola</button>
+      <div id="psOutput"></div>
+    </div>
+
+    <div class="card">
       <div class="card-title">🔔 Notifiche</div>
       <div class="notif-toggle">
         <div style="flex:1;">
@@ -875,6 +1047,7 @@
     </div>
     <div class="modal-actions">
       <button class="btn" id="modalEditBtn">✏️ Modifica</button>
+      <button class="btn secondary" id="modalSeasonalgoBtn" style="color:var(--blue);border-color:var(--blue);opacity:0.95;">🔗 SeasonAlgo</button>
       <button class="btn secondary" id="modalIcsBtn">📅 Calendario</button>
       <button class="btn secondary" id="modalDeleteBtn" style="color:var(--red);border-color:var(--red);opacity:0.85;">🗑 Elimina</button>
     </div>
@@ -1161,14 +1334,20 @@ function compute() {
   let chart = '';
   let payoff = '';
   let projection = '';
+  let marginRisk = '';
   if (spreadPrice !== null) {
     const entryDate = document.getElementById('entryDate').value;
     const exitDateTarget = document.getElementById('exitDateTarget').value;
     const targetSpread = parseFloat(document.getElementById('targetSpread').value);
     const stopSpread = parseFloat(document.getElementById('stopSpread').value);
+    const capital = parseFloat(document.getElementById('accountCapital').value);
+    const spanMargin = parseFloat(document.getElementById('spanMargin').value);
+    const maintPct = parseFloat(document.getElementById('maintenancePct').value) || 85;
+    const riskPct = parseFloat(document.getElementById('riskPct').value) || 2;
     chart = buildTimeChart(action, spreadPrice, qty, pointPrice, leg1Label, leg2Label, entryDate, exitDateTarget, targetSpread, stopSpread);
     payoff = buildPayoffChart(action, spreadPrice, qty, pointPrice, leg1Label, leg2Label);
     projection = buildProjection(action, spreadPrice, qty, pointPrice, targetSpread, stopSpread);
+    marginRisk = buildMarginRisk(action, spreadPrice, qty, pointPrice, stopSpread, capital, spanMargin, maintPct, riskPct);
   }
 
   output.innerHTML = `
@@ -1195,6 +1374,7 @@ function compute() {
         ${pricingExplain}
       </div>
       ${projection}
+      ${marginRisk}
       ${chart}
       ${payoff}
       <div class="ib-steps" style="margin-top: 14px;">
@@ -1215,7 +1395,11 @@ function compute() {
     entryDate: document.getElementById('entryDate').value || null,
     exitDateTarget: document.getElementById('exitDateTarget').value || null,
     targetSpread: isNaN(parseFloat(document.getElementById('targetSpread').value)) ? null : parseFloat(document.getElementById('targetSpread').value),
-    stopSpread: isNaN(parseFloat(document.getElementById('stopSpread').value)) ? null : parseFloat(document.getElementById('stopSpread').value)
+    stopSpread: isNaN(parseFloat(document.getElementById('stopSpread').value)) ? null : parseFloat(document.getElementById('stopSpread').value),
+    accountCapital: isNaN(parseFloat(document.getElementById('accountCapital').value)) ? null : parseFloat(document.getElementById('accountCapital').value),
+    spanMargin: isNaN(parseFloat(document.getElementById('spanMargin').value)) ? null : parseFloat(document.getElementById('spanMargin').value),
+    maintenancePct: parseFloat(document.getElementById('maintenancePct').value) || 85,
+    riskPct: parseFloat(document.getElementById('riskPct').value) || 2
   };
 
   exitCard.style.display = (spreadPrice !== null) ? 'block' : 'none';
@@ -1493,6 +1677,217 @@ function buildProjection(action, entrySpread, qty, pointPrice, targetSpread, sto
   `;
 }
 
+// ============================================================
+// MARGINE & RISCHIO LIQUIDAZIONE
+// ============================================================
+function buildMarginRisk(action, entrySpread, qty, pointPrice, stopSpread, capital, spanMargin, maintPct, riskPct) {
+  // Se mancano i dati di base, non mostrare nulla
+  if (isNaN(capital) || isNaN(spanMargin) || capital <= 0 || spanMargin <= 0) return '';
+  
+  const totalMarginInitial = spanMargin * qty;
+  const totalMarginMaint = totalMarginInitial * (maintPct / 100);
+  const pctOfCapital = (totalMarginInitial / capital) * 100;
+  
+  // Cuscinetto disponibile = capitale - margine maintenance
+  // (questo è il loss massimo che il conto può assorbire prima di margin call)
+  const buffer = capital - totalMarginMaint;
+  
+  // Movimento massimo dello spread contro di te prima della margin call
+  // Loss per punto = qty * pointPrice
+  // Loss massimo prima MC = buffer (perdita che riduce equity sotto maintenance)
+  // Movimento punti = buffer / (qty * pointPrice)
+  const lossPerPoint = qty * pointPrice;
+  const maxAdverseMove = buffer / lossPerPoint;
+  
+  // Prezzo dello spread che innesca margin call
+  // Se BUY: margin call quando spread scende di maxAdverseMove
+  // Se SELL: margin call quando spread sale di maxAdverseMove
+  const mcSpreadPrice = action === 'BUY' 
+    ? entrySpread - maxAdverseMove 
+    : entrySpread + maxAdverseMove;
+  
+  // Rischio % del trade rispetto a maxRiskPct
+  let riskLevel, riskClass, riskMsg;
+  if (pctOfCapital < 25) {
+    riskLevel = 'safe'; riskClass = 'safe'; riskMsg = 'Margine basso, posizione conservativa';
+  } else if (pctOfCapital < 50) {
+    riskLevel = 'ok'; riskClass = 'warning'; riskMsg = 'Margine moderato';
+  } else if (pctOfCapital < 75) {
+    riskLevel = 'high'; riskClass = 'warning'; riskMsg = '⚠ Margine alto, attento allo SPAN che può salire';
+  } else {
+    riskLevel = 'critical'; riskClass = 'danger'; riskMsg = '🚨 Margine MOLTO alto, rischio liquidazione elevato';
+  }
+  
+  // Verifica se lo stop è oltre la margin call
+  let stopVsMcAlert = '';
+  if (!isNaN(stopSpread)) {
+    const stopMove = action === 'BUY' ? entrySpread - stopSpread : stopSpread - entrySpread;
+    if (stopMove > 0) {
+      // Lo stop è in direzione di perdita
+      if (stopMove >= maxAdverseMove) {
+        const lossAtMc = maxAdverseMove * lossPerPoint;
+        stopVsMcAlert = `
+          <div class="liquidation-alert critical">
+            <strong>🚨 ATTENZIONE: il tuo Stop Loss è OLTRE la margin call!</strong><br>
+            Lo spread arriverebbe alla margin call ($${mcSpreadPrice.toFixed(2)}) <strong>prima</strong> di toccare il tuo stop ($${stopSpread.toFixed(2)}).<br>
+            Significa che <strong>IB ti chiuderebbe la posizione</strong> al prezzo di mercato, perdendo <strong>$${lossAtMc.toFixed(0)}</strong>, prima che tu possa uscire al tuo stop.<br>
+            <span style="display:block;margin-top:6px;">💡 Soluzioni: <strong>riduci i contratti</strong>, oppure <strong>avvicina lo stop</strong>, oppure <strong>aggiungi capitale</strong>.</span>
+          </div>
+        `;
+      } else {
+        // Lo stop è prima della margin call (buon segno)
+        const safetyMargin = maxAdverseMove - stopMove;
+        const safetyDollars = safetyMargin * lossPerPoint;
+        stopVsMcAlert = `
+          <div class="liquidation-alert ok">
+            <strong>✓ Stop Loss prima della margin call</strong><br>
+            Hai un cuscinetto di <strong>${safetyMargin.toFixed(2)} punti</strong> ($${safetyDollars.toFixed(0)}) tra il tuo stop e la liquidazione forzata.
+          </div>
+        `;
+      }
+    }
+  } else {
+    stopVsMcAlert = `
+      <div class="liquidation-alert warn">
+        <strong>⚠ Stop Loss non impostato</strong><br>
+        Senza uno stop loss esplicito, sei esposto fino alla margin call. Imposta uno stop ben prima di $${mcSpreadPrice.toFixed(2)}.
+      </div>
+    `;
+  }
+  
+  // Verifica regola % capitale per trade
+  let riskPctAlert = '';
+  if (!isNaN(stopSpread)) {
+    const stopMove = action === 'BUY' ? entrySpread - stopSpread : stopSpread - entrySpread;
+    if (stopMove > 0) {
+      const stopLoss = stopMove * lossPerPoint;
+      const stopLossPct = (stopLoss / capital) * 100;
+      if (stopLossPct > riskPct) {
+        riskPctAlert = `
+          <div class="liquidation-alert warn">
+            <strong>⚠ Rischio per trade superiore al ${riskPct}%</strong><br>
+            Se scatta lo stop perdi <strong>$${stopLoss.toFixed(0)}</strong> = <strong>${stopLossPct.toFixed(1)}%</strong> del capitale.<br>
+            Riduci a ${Math.floor(qty * (riskPct / stopLossPct))} contratto/i per rispettare la regola del ${riskPct}%.
+          </div>
+        `;
+      }
+    }
+  }
+  
+  return `
+    <div class="margin-section" style="margin-top:14px;">
+      <div class="card-title">⚠️ Margine &amp; Liquidazione</div>
+      <div class="risk-gauge">
+        <div class="risk-label">
+          <span>Margine impegnato</span>
+          <span class="val ${riskClass}">${pctOfCapital.toFixed(1)}% del capitale</span>
+        </div>
+        <div class="risk-bar">
+          <div class="risk-bar-fill ${riskClass}" style="width: ${Math.min(pctOfCapital, 100)}%;"></div>
+        </div>
+        <div style="font-size:11px;color:var(--text-faint);">${riskMsg}</div>
+      </div>
+      <div class="risk-rows" style="margin-top:12px;">
+        <div class="pnl-row"><span class="label">Margine Initial totale</span><span class="val">$${totalMarginInitial.toFixed(0)}</span></div>
+        <div class="pnl-row"><span class="label">Margine Maintenance</span><span class="val">$${totalMarginMaint.toFixed(0)}</span></div>
+        <div class="pnl-row"><span class="label">Cuscinetto disponibile</span><span class="val ${buffer > 0 ? 'pos' : 'neg'}">$${buffer.toFixed(0)}</span></div>
+        <div class="pnl-row"><span class="label">Movimento max contro di te</span><span class="val">${maxAdverseMove.toFixed(2)} punti</span></div>
+        <div class="pnl-row"><span class="label">Spread al prezzo di liquidazione</span><span class="val ${riskClass}">${mcSpreadPrice.toFixed(2)}</span></div>
+      </div>
+      ${stopVsMcAlert}
+      ${riskPctAlert}
+      <div style="margin-top:10px;padding:8px 10px;background:var(--bg-elev);border-radius:6px;font-size:11px;color:var(--text-dim);line-height:1.5;">
+        💡 <strong style="color:var(--text);">Importante:</strong> SPAN può salire del 50-200% durante volatilità estrema. Tieni sempre cuscinetto extra. IB può liquidare automaticamente senza preavviso.
+      </div>
+    </div>
+  `;
+}
+
+// ============================================================
+// CALCOLATORE STANDALONE: quanti contratti posso aprire?
+// ============================================================
+document.getElementById('psCalcBtn').addEventListener('click', () => {
+  const capital = parseFloat(document.getElementById('psCapital').value);
+  const margin = parseFloat(document.getElementById('psMargin').value);
+  const stop = parseFloat(document.getElementById('psStop').value);
+  const pp = parseFloat(document.getElementById('psPointPrice').value);
+  const riskPct = parseFloat(document.getElementById('psRiskPct').value) || 2;
+  const marginPct = parseFloat(document.getElementById('psMarginPct').value) || 40;
+  
+  if (isNaN(capital) || isNaN(margin) || capital <= 0 || margin <= 0) {
+    document.getElementById('psOutput').innerHTML = '<div class="liquidation-alert warn" style="margin-top:12px;"><strong>Inserisci capitale e margine</strong></div>';
+    return;
+  }
+  
+  // Vincolo 1: margine massimo impegnabile
+  const maxMarginBudget = capital * (marginPct / 100);
+  const maxByMargin = Math.floor(maxMarginBudget / margin);
+  
+  // Vincolo 2: stop loss massimo del rischio %
+  let maxByRisk = null;
+  let stopDollars = null;
+  if (!isNaN(stop) && !isNaN(pp) && stop > 0 && pp > 0) {
+    stopDollars = stop * pp; // perdita in $ per 1 contratto se scatta stop
+    const maxRiskBudget = capital * (riskPct / 100);
+    maxByRisk = Math.floor(maxRiskBudget / stopDollars);
+  }
+  
+  // Il limite più stringente vince
+  let finalMax, limitedBy;
+  if (maxByRisk !== null) {
+    if (maxByRisk < maxByMargin) {
+      finalMax = maxByRisk;
+      limitedBy = 'rischio stop';
+    } else {
+      finalMax = maxByMargin;
+      limitedBy = 'margine';
+    }
+  } else {
+    finalMax = maxByMargin;
+    limitedBy = 'margine';
+  }
+  
+  finalMax = Math.max(0, finalMax);
+  
+  let cssClass = 'safe';
+  if (finalMax === 0) cssClass = 'danger';
+  else if (finalMax === 1) cssClass = 'warning';
+  
+  let stopRiskRow = '';
+  if (stopDollars !== null) {
+    const totalRisk = stopDollars * finalMax;
+    const totalRiskPct = (totalRisk / capital) * 100;
+    stopRiskRow = `
+      <div class="pnl-row"><span class="label">Perdita se scatta stop (${finalMax} contratti)</span><span class="val neg">-$${totalRisk.toFixed(0)} (${totalRiskPct.toFixed(1)}%)</span></div>
+    `;
+  }
+  
+  const totalMarginUsed = margin * finalMax;
+  const marginUsedPct = (totalMarginUsed / capital) * 100;
+  
+  document.getElementById('psOutput').innerHTML = `
+    <div class="standalone-result">
+      <div class="big-number-label">Massimo contratti</div>
+      <div class="big-number ${cssClass}">${finalMax}</div>
+      <div style="text-align:center; font-size:12px; color:var(--text-dim); margin-bottom:14px;">
+        ${finalMax > 0 ? `limitato da: <strong style="color:var(--text);">${limitedBy}</strong>` : '⚠ Conto troppo piccolo per questo trade'}
+      </div>
+      <div class="risk-rows">
+        <div class="pnl-row"><span class="label">Margine totale impegnato</span><span class="val">$${totalMarginUsed.toFixed(0)} (${marginUsedPct.toFixed(1)}%)</span></div>
+        ${stopRiskRow}
+        <div class="pnl-row"><span class="label">Max per regola margine (${marginPct}%)</span><span class="val">${maxByMargin}</span></div>
+        ${maxByRisk !== null ? `<div class="pnl-row"><span class="label">Max per regola stop (${riskPct}%)</span><span class="val">${maxByRisk}</span></div>` : ''}
+      </div>
+      ${finalMax === 0 ? `
+        <div class="liquidation-alert critical" style="margin-top:12px;">
+          <strong>⚠ Conto insufficiente</strong><br>
+          Con questo capitale non puoi aprire nemmeno 1 contratto rispettando le regole. Servirebbero almeno $${Math.max(margin / (marginPct/100), (stopDollars || 0) / (riskPct/100)).toFixed(0)}.
+        </div>
+      ` : ''}
+    </div>
+  `;
+});
+
 function buildPayoffChart(action, entrySpread, qty, pointPrice) {
   const range = Math.max(Math.abs(entrySpread)*0.5, 2);
   const minS = entrySpread - range, maxS = entrySpread + range;
@@ -1603,8 +1998,16 @@ document.getElementById('calcPnlBtn').addEventListener('click', () => {
 document.getElementById('calcBtn').addEventListener('click', compute);
 document.getElementById('resetBtn').addEventListener('click', () => {
   document.querySelectorAll('input').forEach(i => {
-    if (i.type !== 'date') i.value = i.id === 'qty' ? '1' : (i.id === 'pointPrice' ? '1000' : '');
-    else i.value = '';
+    if (i.type !== 'date') {
+      if (i.id === 'qty') i.value = '1';
+      else if (i.id === 'pointPrice') i.value = '1000';
+      else if (i.id === 'maintenancePct') i.value = '85';
+      else if (i.id === 'riskPct') i.value = '2';
+      else if (i.id === 'psRiskPct') i.value = '2';
+      else if (i.id === 'psMarginPct') i.value = '40';
+      else if (i.id === 'psPointPrice') i.value = '50';
+      else i.value = '';
+    } else i.value = '';
   });
   document.getElementById('view').value = '';
   document.getElementById('reminderNotes').value = '';
@@ -1709,6 +2112,12 @@ function loadTradeIntoForm(r) {
     const input = document.getElementById(btn.dataset.target);
     if (input) updateSignButton(input, btn);
   });
+
+  // Margine
+  if (r.accountCapital !== null && r.accountCapital !== undefined) document.getElementById('accountCapital').value = r.accountCapital;
+  if (r.spanMargin !== null && r.spanMargin !== undefined) document.getElementById('spanMargin').value = r.spanMargin;
+  if (r.maintenancePct) document.getElementById('maintenancePct').value = r.maintenancePct;
+  if (r.riskPct) document.getElementById('riskPct').value = r.riskPct;
 
   // Gambe
   if (r.type === 'Calendar') {
@@ -1919,12 +2328,13 @@ function openDetailsModal(r) {
       </div>`;
   }
 
-  let chart = '', payoff = '', projection = '';
+  let chart = '', payoff = '', projection = '', marginRisk = '';
   if (spreadPrice !== null && spreadPrice !== undefined) {
     chart = buildTimeChart(action, spreadPrice, qty, pointPrice, leg1Label, leg2Label,
                            r.entryDate, r.exitDateTarget, r.targetSpread, r.stopSpread);
     payoff = buildPayoffChart(action, spreadPrice, qty, pointPrice);
     projection = buildProjection(action, spreadPrice, qty, pointPrice, r.targetSpread, r.stopSpread);
+    marginRisk = buildMarginRisk(action, spreadPrice, qty, pointPrice, r.stopSpread, r.accountCapital, r.spanMargin, r.maintenancePct || 85, r.riskPct || 2);
   }
 
   // P&L reale se ci sono prezzi di uscita
@@ -2002,6 +2412,7 @@ function openDetailsModal(r) {
       ${daysHtml}
       ${realPnl}
       ${projection}
+      ${marginRisk}
       ${chart}
       ${payoff}
       ${r.notes ? `<div class="card" style="margin-top:14px;background:var(--bg);"><div class="card-title">📝 Note</div><div style="font-size:14px;color:var(--text-dim);font-style:italic;line-height:1.6;">"${escapeHtml(r.notes)}"</div></div>` : ''}
@@ -2043,6 +2454,53 @@ document.getElementById('modalEditBtn').addEventListener('click', () => {
 document.getElementById('modalIcsBtn').addEventListener('click', () => {
   if (currentModalTrade) downloadICS(currentModalTrade);
 });
+
+// Pulsante SeasonAlgo: apre la pagina di analyze del trade
+document.getElementById('modalSeasonalgoBtn').addEventListener('click', () => {
+  if (!currentModalTrade) return;
+  const url = buildSeasonAlgoURL(currentModalTrade);
+  if (url) {
+    window.open(url, '_blank', 'noopener');
+  } else {
+    alert('Impossibile costruire il link: dati gambe non riconosciuti.\n\nVai manualmente su seasonalgo.com e cerca lo spread.');
+  }
+});
+
+// Costruisce l'URL di SeasonAlgo per uno spread.
+// Pattern: https://www.seasonalgo.com/analyze/builder?spread=LEG1-LEG2
+// Esempio: ZSH27-ZWU26 per Soia Mar27 vs Grano Sep26
+function buildSeasonAlgoURL(trade) {
+  // Estraggo i codici tipo "ZSH27" o "VXN26" da leg1 e leg2
+  // I label sono nella forma "VXNN26 (LUG 2026)" o "ZS U 2026" o simili
+  const code1 = extractContractCode(trade.leg1);
+  const code2 = extractContractCode(trade.leg2);
+  if (!code1 || !code2) return null;
+  const spreadStr = `${code1}-${code2}`;
+  // SeasonAlgo accetta URL con il parametro spread nella pagina Analyze
+  return `https://www.seasonalgo.com/analyze/builder?spread=${encodeURIComponent(spreadStr)}`;
+}
+
+// Estrae il codice contratto (es. "ZSH27") da un label tipo "ZSH27 (MAR 2027)" o "ZS MAR 2027"
+function extractContractCode(label) {
+  if (!label) return null;
+  // Caso 1: il label inizia già con un codice tipo "ABCD26" o "ABCN27"
+  // Pattern: 1-4 lettere + 1 lettera mese (FGHJKMNQUVXZ) + 2 cifre
+  let m = label.match(/\b([A-Z]{1,4}[FGHJKMNQUVXZ]\d{2})\b/);
+  if (m) return m[1];
+  // Caso 2: "XXX MES YYYY" → costruisco il codice
+  const monthMap = {
+    'GEN':'F','FEB':'G','MAR':'H','APR':'J','MAG':'K','GIU':'M',
+    'LUG':'N','AGO':'Q','SET':'U','OTT':'V','NOV':'X','DIC':'Z'
+  };
+  m = label.match(/^([A-Z]+)\s+(GEN|FEB|MAR|APR|MAG|GIU|LUG|AGO|SET|OTT|NOV|DIC)\s+(\d{4})/i);
+  if (m) {
+    const ticker = m[1].toUpperCase();
+    const monthCode = monthMap[m[2].toUpperCase()];
+    const year2 = m[3].slice(-2);
+    return `${ticker}${monthCode}${year2}`;
+  }
+  return null;
+}
 
 document.getElementById('modalDeleteBtn').addEventListener('click', async () => {
   if (!currentModalTrade) return;
