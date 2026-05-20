@@ -2412,13 +2412,25 @@ function loadTradeIntoForm(r) {
   // Gambe
   if (r.type === 'Calendar') {
     // Provo a estrarre mese/anno dal label leg1 / leg2
-    // Format atteso: "XXX (MES 2026)" oppure "XXX MES 2026"
+    // Format atteso: "XXX (MES 2026)" oppure "XXXN26 (LUG 2026)" oppure "XXX MES 2026"
     const parsed1 = parseLegLabel(r.leg1);
     const parsed2 = parseLegLabel(r.leg2);
+    const underlyingSel = document.getElementById('underlying');
+    
     if (parsed1) {
       if (parsed1.underlying) {
-        const opt = Array.from(document.getElementById('underlying').options).find(o => o.value === parsed1.underlying);
-        if (opt) document.getElementById('underlying').value = parsed1.underlying;
+        // Provo a trovare il sottostante nel dropdown
+        let found = Array.from(underlyingSel.options).find(o => o.value === parsed1.underlying);
+        // Se non trovato, fallback: cerco un'option il cui value sia un prefisso del label originale
+        if (!found && r.leg1) {
+          const upperLabel = r.leg1.toUpperCase();
+          // Ordino le option per lunghezza decrescente per dare priorità ai match più lunghi (VXN prima di VX)
+          const sorted = Array.from(underlyingSel.options)
+            .filter(o => o.value !== 'CUSTOM' && o.value !== '')
+            .sort((a, b) => b.value.length - a.value.length);
+          found = sorted.find(o => upperLabel.startsWith(o.value));
+        }
+        if (found) underlyingSel.value = found.value;
       }
       if (parsed1.monthCode) document.getElementById('nearMonthSel').value = parsed1.monthValue;
       if (parsed1.year) document.getElementById('nearYearSel').value = parsed1.year;
@@ -2465,31 +2477,65 @@ function loadTradeIntoForm(r) {
   }
 }
 
-// Parser per estrarre underlying/mese/anno da un label tipo "VXN LUG 2026" o "VXNN26 (LUG 2026)"
+// Parser per estrarre underlying/mese/anno da un label tipo:
+//  - "VXNN26 (LUG 2026)"  → underlying=VXN, mese=N(LUG), anno=2026
+//  - "CLM26 (GIU 2026)"   → underlying=CL, mese=M(GIU), anno=2026
+//  - "VXN LUG 2026"       → underlying=VXN, mese=N(LUG), anno=2026
+//  - "ZSU26"              → underlying=ZS, mese=U(SET), anno=2026
 function parseLegLabel(label) {
   if (!label) return null;
   const monthMap = {
     'GEN':'F','FEB':'G','MAR':'H','APR':'J','MAG':'K','GIU':'M',
     'LUG':'N','AGO':'Q','SET':'U','OTT':'V','NOV':'X','DIC':'Z'
   };
-  // Match "XXX MES YYYY" o "(MES YYYY)"
-  const m = label.match(/([A-Z]+)\s+(GEN|FEB|MAR|APR|MAG|GIU|LUG|AGO|SET|OTT|NOV|DIC)\s+(\d{4})/i)
-        || label.match(/\((GEN|FEB|MAR|APR|MAG|GIU|LUG|AGO|SET|OTT|NOV|DIC)\s+(\d{4})\)/i);
-  if (!m) return null;
-  if (m.length === 4) {
+  const monthCodeToIta = {
+    'F':'GEN','G':'FEB','H':'MAR','J':'APR','K':'MAG','M':'GIU',
+    'N':'LUG','Q':'AGO','U':'SET','V':'OTT','X':'NOV','Z':'DIC'
+  };
+
+  // Provo prima a parsare un codice CME completo all'inizio del label
+  // Pattern: 1-4 lettere (ticker) + 1 lettera mese CME + 2 cifre anno
+  // Le lettere del mese CME sono: F G H J K M N Q U V X Z (no I L O P R S T W Y)
+  // Quindi distinguo: il ticker può contenere quelle stesse lettere, ma l'ultima
+  // lettera prima delle 2 cifre è SEMPRE il codice mese.
+  // Regex: (ticker)(monthCode)(YY)
+  let cmeMatch = label.match(/^([A-Z]{1,4})([FGHJKMNQUVXZ])(\d{2})\b/);
+  if (cmeMatch) {
+    const ticker = cmeMatch[1];
+    const monthCode = cmeMatch[2];
+    const year2 = cmeMatch[3];
+    const monthIta = monthCodeToIta[monthCode];
+    const year4 = (parseInt(year2) >= 50 ? '19' : '20') + year2;
+    return {
+      underlying: ticker,
+      monthCode: monthCode,
+      monthValue: monthCode + '|' + monthIta,
+      year: year4
+    };
+  }
+
+  // Fallback 1: "TICKER MES ANNO"
+  let m = label.match(/^([A-Z]+)\s+(GEN|FEB|MAR|APR|MAG|GIU|LUG|AGO|SET|OTT|NOV|DIC)\s+(\d{4})/i);
+  if (m) {
     return {
       underlying: m[1].toUpperCase(),
       monthCode: monthMap[m[2].toUpperCase()],
       monthValue: monthMap[m[2].toUpperCase()] + '|' + m[2].toUpperCase(),
       year: m[3]
     };
-  } else {
+  }
+
+  // Fallback 2: solo "(MES ANNO)" senza ticker visibile
+  m = label.match(/\((GEN|FEB|MAR|APR|MAG|GIU|LUG|AGO|SET|OTT|NOV|DIC)\s+(\d{4})\)/i);
+  if (m) {
     return {
       monthCode: monthMap[m[1].toUpperCase()],
       monthValue: monthMap[m[1].toUpperCase()] + '|' + m[1].toUpperCase(),
       year: m[2]
     };
   }
+
+  return null;
 }
 
 // ============================================================
@@ -2598,6 +2644,12 @@ async function renderRiskDashboard() {
 
   const marginValClass = marginPct < 30 ? 'safe' : marginPct < 60 ? 'warning' : 'danger';
   const lossValClass = maxLossPct < 5 ? 'safe' : maxLossPct < 10 ? 'warning' : 'danger';
+  
+  // Cuscinetto fino a margin call = capitale - maintenance totale
+  const safetyBuffer = cap - totalMaintenance;
+  const safetyBufferPct = cap > 0 ? (safetyBuffer / cap) * 100 : 0;
+  // Maintenance come % del capitale
+  const maintPctOfCapital = cap > 0 ? (totalMaintenance / cap) * 100 : 0;
 
   container.innerHTML = `
     <div class="risk-dashboard ${dashClass}">
@@ -2611,9 +2663,19 @@ async function renderRiskDashboard() {
             <div class="stat-sub">Disponibile: ${currencySymbol}${availableMargin.toLocaleString()}</div>
           </div>
           <div class="risk-stat">
-            <div class="stat-label">Margine impegnato</div>
+            <div class="stat-label">Margine Initial</div>
             <div class="stat-value ${marginValClass}">${currencySymbol}${totalMargin.toFixed(0)}</div>
             <div class="stat-sub">${marginPct.toFixed(1)}% del capitale</div>
+          </div>
+          <div class="risk-stat">
+            <div class="stat-label">Margine Maintenance</div>
+            <div class="stat-value" style="color:var(--amber);">${currencySymbol}${totalMaintenance.toFixed(0)}</div>
+            <div class="stat-sub">🚨 Soglia margin call</div>
+          </div>
+          <div class="risk-stat">
+            <div class="stat-label">Cuscinetto fino a MC</div>
+            <div class="stat-value safe">${currencySymbol}${safetyBuffer.toFixed(0)}</div>
+            <div class="stat-sub">${safetyBufferPct.toFixed(1)}% del capitale</div>
           </div>
           <div class="risk-stat">
             <div class="stat-label">Trade Aperti</div>
@@ -2626,10 +2688,23 @@ async function renderRiskDashboard() {
             <div class="stat-sub">${maxLossPct.toFixed(1)}% se tutti stop colpiti</div>
           </div>
         </div>
-        <div class="risk-bar">
-          <div class="risk-bar-fill ${marginValClass}" style="width: ${Math.min(marginPct, 100)}%;"></div>
+        
+        <div style="margin-top:12px;">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-dim);margin-bottom:4px;">
+            <span>Initial: ${marginPct.toFixed(1)}%</span>
+            <span style="color:var(--amber);">Maintenance: ${maintPctOfCapital.toFixed(1)}%</span>
+            <span>100% (margin call se equity sotto)</span>
+          </div>
+          <div class="risk-bar" style="height:14px;position:relative;">
+            <div class="risk-bar-fill ${marginValClass}" style="width: ${Math.min(marginPct, 100)}%;"></div>
+            <div style="position:absolute;top:0;left:${Math.min(maintPctOfCapital, 100)}%;width:2px;height:100%;background:var(--amber);box-shadow:0 0 4px var(--amber);"></div>
+          </div>
+          <div style="font-size:10px;color:var(--text-faint);margin-top:3px;text-align:center;">
+            La linea ambra è il livello Maintenance — oltre quel punto = margin call
+          </div>
         </div>
-        <div style="font-size:11px;color:var(--text-faint);text-align:center;margin-top:4px;">
+        
+        <div style="font-size:11px;color:var(--text-faint);text-align:center;margin-top:10px;">
           📋 ${counts.planned} pianificati · ✅ ${counts.open} aperti · 📁 ${counts.closed} chiusi
         </div>
         ${warningHtml}
