@@ -723,6 +723,204 @@
   }
   .capital-display button:hover { color: var(--green); border-color: var(--green); }
 
+  /* Accordion Strumenti */
+  .accordion-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 10px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .accordion-item.open { border-color: var(--green); }
+  .accordion-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 18px;
+    cursor: pointer;
+    user-select: none;
+    background: transparent;
+    border: none;
+    width: 100%;
+    text-align: left;
+    color: var(--text);
+  }
+  .accordion-header:active { background: var(--bg-elev); }
+  .accordion-icon {
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+  .accordion-title {
+    flex: 1;
+    font-weight: 700;
+    font-size: 15px;
+  }
+  .accordion-sub {
+    font-size: 11px;
+    color: var(--text-faint);
+    font-weight: 500;
+    margin-top: 2px;
+  }
+  .accordion-arrow {
+    color: var(--text-dim);
+    font-size: 12px;
+    transition: transform 0.25s;
+  }
+  .accordion-item.open .accordion-arrow { transform: rotate(90deg); color: var(--green); }
+  .accordion-body {
+    display: none;
+    padding: 0 18px 18px;
+    border-top: 1px solid var(--border);
+  }
+  .accordion-item.open .accordion-body { display: block; animation: fadeIn 0.25s ease; }
+
+  /* Tabella tax */
+  .tax-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-top: 10px;
+  }
+  .tax-table th, .tax-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+  }
+  .tax-table th {
+    color: var(--text-faint);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+  }
+  .tax-table td.num {
+    text-align: right;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+  }
+  .tax-table tr.total td {
+    border-bottom: none;
+    padding-top: 12px;
+    border-top: 2px solid var(--border-bright);
+    font-weight: 700;
+  }
+  .tax-table .pos { color: var(--green); }
+  .tax-table .neg { color: var(--red); }
+
+  /* Frazioni cereali */
+  .fraction-display {
+    text-align: center;
+    padding: 14px;
+    background: var(--bg);
+    border-radius: 10px;
+    margin-top: 10px;
+  }
+  .fraction-result {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--green);
+    margin: 6px 0;
+  }
+  .fraction-buttons {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin: 10px 0;
+  }
+  .fraction-buttons button {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 0;
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .fraction-buttons button.active {
+    background: var(--green-glow);
+    border-color: var(--green);
+    color: var(--green);
+  }
+
+  /* Seasonal calendar */
+  .month-row {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+  }
+  .month-row.current { border-color: var(--green); background: linear-gradient(135deg, rgba(0,229,137,0.06), transparent); }
+  .month-row h4 {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .month-row .current-tag {
+    background: var(--green-glow);
+    color: var(--green);
+    font-size: 9px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+  .spread-suggestion {
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.6;
+    padding: 6px 0;
+    border-bottom: 1px dashed var(--border);
+  }
+  .spread-suggestion:last-child { border-bottom: none; }
+  .spread-suggestion strong { color: var(--text); }
+  .spread-suggestion .sa-link {
+    color: var(--blue);
+    text-decoration: none;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  /* Risk advanced */
+  .correlation-grid {
+    display: grid;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .correlation-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: var(--bg);
+    border-radius: 8px;
+    font-size: 13px;
+  }
+  .correlation-bar {
+    flex: 1;
+    height: 6px;
+    background: var(--bg-elev);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .correlation-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--green), var(--amber), var(--red));
+  }
+  .correlation-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    min-width: 50px;
+    text-align: right;
+  }
+
   /* Storage indicator */
   .storage-info {
     font-size: 11px; color: var(--text-faint); padding: 10px 12px;
@@ -760,6 +958,7 @@
   <div class="tabs">
     <button class="tab active" data-tab="calc">Calcola</button>
     <button class="tab" data-tab="reminders">Trade<span id="reminderBadge"></span></button>
+    <button class="tab" data-tab="tools">🛠 Strumenti</button>
     <button class="tab" data-tab="guide">Guida</button>
     <button class="tab" data-tab="settings">⚙</button>
   </div>
@@ -1022,6 +1221,251 @@
       <div class="card-title">I tuoi trade salvati</div>
       <div id="remindersList"><div class="empty">Caricamento...</div></div>
     </div>
+  </section>
+
+  <!-- ========================================== -->
+  <!-- TAB STRUMENTI -->
+  <!-- ========================================== -->
+  <section class="panel" id="panel-tools">
+
+    <div style="text-align:center; margin-bottom: 16px;">
+      <div style="font-size: 12px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.15em; font-weight: 700;">🛠 Strumenti Avanzati</div>
+      <div style="font-size: 13px; color: var(--text-dim); margin-top: 4px;">Tap su una sezione per espanderla</div>
+    </div>
+
+    <!-- 1. FISCALITÀ ITALIANA -->
+    <div class="accordion-item" data-acc="tax">
+      <button class="accordion-header">
+        <span class="accordion-icon">🇮🇹</span>
+        <div style="flex:1;">
+          <div class="accordion-title">Fiscalità Italiana</div>
+          <div class="accordion-sub">Calcolo tasse 26% su trade chiusi</div>
+        </div>
+        <span class="accordion-arrow">▶</span>
+      </button>
+      <div class="accordion-body">
+        <p style="font-size: 13px; color: var(--text-dim); margin: 12px 0;">
+          Calcola le imposte sui profitti dei trade chiusi nell'anno in corso, con compensazione perdite (minusvalenze).
+        </p>
+        <div class="row">
+          <div class="field">
+            <label>Anno fiscale</label>
+            <input type="number" id="taxYear" value="" placeholder="2026" min="2020" max="2099" inputmode="numeric">
+          </div>
+          <div class="field">
+            <label>Aliquota %</label>
+            <input type="number" id="taxRate" value="26" step="0.5" inputmode="decimal">
+            <span class="hint">Default 26% (futures)</span>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>Minus pregresse (€)</label>
+            <input type="number" id="taxLossesPrior" value="0" step="100" inputmode="decimal">
+            <span class="hint">Minusvalenze degli anni precedenti utilizzabili</span>
+          </div>
+          <div class="field">
+            <label>Commissioni totali (€)</label>
+            <input type="number" id="taxCommissions" value="0" step="0.01" inputmode="decimal">
+            <span class="hint">Pagate a IB nell'anno</span>
+          </div>
+        </div>
+        <button class="btn" id="calcTaxBtn" style="margin-top: 10px;">Calcola Tasse</button>
+        <div id="taxOutput"></div>
+        <div class="callout" style="margin-top: 12px;">
+          <strong>⚠ Disclaimer:</strong> calcolo indicativo. La normativa fiscale italiana sui derivati esteri (IB è broker non-residente, regime <strong>dichiarativo</strong> obbligatorio) prevede quadro RW (monitoraggio) e RT (calcolo). <strong>Consulta sempre un commercialista</strong> abilitato per la dichiarazione effettiva.
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. FRAZIONI CEREALI -->
+    <div class="accordion-item" data-acc="fraction">
+      <button class="accordion-header">
+        <span class="accordion-icon">🧮</span>
+        <div style="flex:1;">
+          <div class="accordion-title">Frazioni Cereali</div>
+          <div class="accordion-sub">Converti tra frazioni ottave e decimali</div>
+        </div>
+        <span class="accordion-arrow">▶</span>
+      </button>
+      <div class="accordion-body">
+        <p style="font-size: 13px; color: var(--text-dim); margin: 12px 0;">
+          Soia, Mais, Grano, Avena quotano in <strong>ottavi di cent per bushel</strong>. Tick minimo = 1/4 cent.
+        </p>
+        <div class="row">
+          <div class="field">
+            <label>Prezzo intero</label>
+            <input type="number" id="fracInteger" inputmode="decimal" step="1" placeholder="es. 649">
+          </div>
+          <div class="field">
+            <label>Frazione</label>
+            <div class="fraction-buttons">
+              <button type="button" data-frac="0" class="active">0</button>
+              <button type="button" data-frac="0.25">1/4</button>
+              <button type="button" data-frac="0.5">1/2</button>
+              <button type="button" data-frac="0.75">3/4</button>
+            </div>
+          </div>
+        </div>
+        <div class="fraction-display">
+          <div style="font-size: 11px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700;">Decimale equivalente</div>
+          <div class="fraction-result" id="fracResult">—</div>
+          <div style="font-size: 12px; color: var(--text-dim);" id="fracValue">Inserisci un prezzo intero</div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>Contratti</label>
+            <input type="number" id="fracContracts" value="1" min="1" inputmode="numeric">
+          </div>
+          <div class="field">
+            <label>Bushels/contratto</label>
+            <select id="fracBushels">
+              <option value="5000">5000 (ZS, ZW, ZC standard)</option>
+              <option value="1000">1000 (mini XK, XW, XC)</option>
+              <option value="50">50 (Avena per cent)</option>
+            </select>
+          </div>
+        </div>
+        <div id="fracPnl" style="font-size: 12px; color: var(--text-dim); margin-top: 8px; text-align: center;"></div>
+      </div>
+    </div>
+
+    <!-- 3. ROLL COST -->
+    <div class="accordion-item" data-acc="roll">
+      <button class="accordion-header">
+        <span class="accordion-icon">🔄</span>
+        <div style="flex:1;">
+          <div class="accordion-title">Roll Cost</div>
+          <div class="accordion-sub">Costo per rollare uno spread alla scadenza successiva</div>
+        </div>
+        <span class="accordion-arrow">▶</span>
+      </button>
+      <div class="accordion-body">
+        <p style="font-size: 13px; color: var(--text-dim); margin: 12px 0;">
+          Quando una gamba si avvicina al First Notice Day, devi <strong>rollare</strong> alla scadenza dopo. Calcola il costo dell'operazione.
+        </p>
+        <div class="row">
+          <div class="field">
+            <label>Spread attuale</label>
+            <input type="number" id="rollCurrentSpread" step="0.01" inputmode="decimal" placeholder="es. -0.75">
+          </div>
+          <div class="field">
+            <label>Spread nuovo (post-roll)</label>
+            <input type="number" id="rollNewSpread" step="0.01" inputmode="decimal" placeholder="es. -0.50">
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>Contratti</label>
+            <input type="number" id="rollQty" value="1" min="1" inputmode="numeric">
+          </div>
+          <div class="field">
+            <label>Point Price</label>
+            <input type="number" id="rollPointPrice" value="1000" inputmode="decimal">
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>Commissioni roll totali</label>
+            <input type="number" id="rollCommissions" value="20" step="0.01" inputmode="decimal">
+            <span class="hint">4 trade × ~$5 = $20 ca.</span>
+          </div>
+        </div>
+        <button class="btn" id="calcRollBtn" style="margin-top: 10px;">Calcola Costo Roll</button>
+        <div id="rollOutput"></div>
+      </div>
+    </div>
+
+    <!-- 4. BREAK-EVEN -->
+    <div class="accordion-item" data-acc="be">
+      <button class="accordion-header">
+        <span class="accordion-icon">💰</span>
+        <div style="flex:1;">
+          <div class="accordion-title">Break-Even con Commissioni</div>
+          <div class="accordion-sub">A che prezzo recuperi davvero i costi</div>
+        </div>
+        <span class="accordion-arrow">▶</span>
+      </button>
+      <div class="accordion-body">
+        <p style="font-size: 13px; color: var(--text-dim); margin: 12px 0;">
+          Calcola il prezzo di uscita minimo per andare in pari, includendo commissioni IB.
+        </p>
+        <div class="row">
+          <div class="field">
+            <label>Azione</label>
+            <select id="beAction">
+              <option value="BUY">BUY (long spread)</option>
+              <option value="SELL">SELL (short spread)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Spread di entrata</label>
+            <input type="number" id="beEntry" step="0.01" inputmode="decimal" placeholder="es. -0.75">
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>Contratti</label>
+            <input type="number" id="beQty" value="1" min="1" inputmode="numeric">
+          </div>
+          <div class="field">
+            <label>Point Price</label>
+            <input type="number" id="bePointPrice" value="1000" inputmode="decimal">
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>Commissione apertura</label>
+            <input type="number" id="beOpenCom" value="10" step="0.01" inputmode="decimal">
+            <span class="hint">Tot per le 2 gambe</span>
+          </div>
+          <div class="field">
+            <label>Commissione chiusura</label>
+            <input type="number" id="beCloseCom" value="10" step="0.01" inputmode="decimal">
+          </div>
+        </div>
+        <button class="btn" id="calcBeBtn" style="margin-top: 10px;">Calcola Break-Even</button>
+        <div id="beOutput"></div>
+      </div>
+    </div>
+
+    <!-- 5. RISK MANAGEMENT AVANZATO -->
+    <div class="accordion-item" data-acc="risk">
+      <button class="accordion-header">
+        <span class="accordion-icon">🛡</span>
+        <div style="flex:1;">
+          <div class="accordion-title">Risk Management Avanzato</div>
+          <div class="accordion-sub">Correlazioni e stress test del portafoglio</div>
+        </div>
+        <span class="accordion-arrow">▶</span>
+      </button>
+      <div class="accordion-body">
+        <p style="font-size: 13px; color: var(--text-dim); margin: 12px 0;">
+          Analizza i trade <strong>aperti</strong>: concentrazione per famiglia, scenari di stress.
+        </p>
+        <button class="btn secondary" id="runRiskBtn" style="margin-top: 6px;">📊 Analizza Portafoglio Aperto</button>
+        <div id="riskOutput" style="margin-top: 12px;"></div>
+      </div>
+    </div>
+
+    <!-- 6. ALERT STAGIONALI -->
+    <div class="accordion-item" data-acc="seasonal">
+      <button class="accordion-header">
+        <span class="accordion-icon">🔔</span>
+        <div style="flex:1;">
+          <div class="accordion-title">Calendario Stagionale</div>
+          <div class="accordion-sub">Spread tipici mese per mese</div>
+        </div>
+        <span class="accordion-arrow">▶</span>
+      </button>
+      <div class="accordion-body">
+        <p style="font-size: 13px; color: var(--text-dim); margin: 12px 0;">
+          Riferimento generale degli spread stagionali per ogni mese. <strong>Verifica sempre su SeasonAlgo</strong> prima di tradare.
+        </p>
+        <div id="seasonalCalendar"></div>
+      </div>
+    </div>
+
   </section>
 
   <section class="panel" id="panel-guide">
@@ -1342,6 +1786,7 @@ tabs.forEach(t => t.addEventListener('click', () => {
   document.getElementById('panel-' + t.dataset.tab).classList.add('active');
   if (t.dataset.tab === 'reminders') renderReminders();
   if (t.dataset.tab === 'settings') updateStorageInfo();
+  if (t.dataset.tab === 'tools') initToolsTab();
 }));
 
 const spreadType = document.getElementById('spreadType');
@@ -2088,6 +2533,486 @@ function buildMarginRisk(action, entrySpread, qty, pointPrice, stopSpread, capit
       <div style="margin-top:10px;padding:8px 10px;background:var(--bg-elev);border-radius:6px;font-size:11px;color:var(--text-dim);line-height:1.5;">
         💡 <strong style="color:var(--text);">Importante:</strong> SPAN può salire del 50-200% durante volatilità estrema. Tieni sempre cuscinetto extra. IB può liquidare automaticamente senza preavviso.
       </div>
+    </div>
+  `;
+}
+
+// ============================================================
+// TAB STRUMENTI - Init e Accordion
+// ============================================================
+let toolsInitialized = false;
+function initToolsTab() {
+  if (toolsInitialized) return;
+  toolsInitialized = true;
+
+  // Accordion
+  document.querySelectorAll('.accordion-header').forEach(h => {
+    h.addEventListener('click', () => {
+      const item = h.closest('.accordion-item');
+      const wasOpen = item.classList.contains('open');
+      // Chiudi tutti gli altri (one-at-a-time)
+      document.querySelectorAll('.accordion-item').forEach(i => i.classList.remove('open'));
+      if (!wasOpen) item.classList.add('open');
+    });
+  });
+
+  // Pre-fill anno corrente per tasse
+  document.getElementById('taxYear').value = new Date().getFullYear();
+
+  // Frazioni cereali: pulsanti
+  document.querySelectorAll('.fraction-buttons button').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('.fraction-buttons button').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      updateFractionResult();
+    });
+  });
+  ['fracInteger', 'fracContracts', 'fracBushels'].forEach(id => {
+    document.getElementById(id).addEventListener('input', updateFractionResult);
+  });
+
+  // Render calendario stagionale
+  renderSeasonalCalendar();
+}
+
+// ============================================================
+// STRUMENTO 1: FISCALITÀ ITALIANA
+// ============================================================
+document.getElementById('calcTaxBtn').addEventListener('click', async () => {
+  const year = parseInt(document.getElementById('taxYear').value);
+  const rate = parseFloat(document.getElementById('taxRate').value) / 100;
+  const priorLosses = parseFloat(document.getElementById('taxLossesPrior').value) || 0;
+  const commissions = parseFloat(document.getElementById('taxCommissions').value) || 0;
+  const out = document.getElementById('taxOutput');
+
+  if (isNaN(year) || isNaN(rate)) {
+    out.innerHTML = '<div class="callout" style="margin-top:12px;"><strong>Inserisci anno e aliquota validi</strong></div>';
+    return;
+  }
+
+  // Carica tutti i trade chiusi nell'anno
+  const allTrades = await loadTrades();
+  const closedTrades = allTrades.filter(t => {
+    if (t.status !== 'closed') return false;
+    if (t.exitP1 === null || t.exitP1 === undefined) return false;
+    // Usa updated o created come data riferimento di chiusura
+    const refDate = t.updated || t.created || t.ts;
+    return new Date(refDate).getFullYear() === year;
+  });
+
+  if (closedTrades.length === 0) {
+    out.innerHTML = `<div class="callout" style="margin-top:12px;"><strong>Nessun trade chiuso nel ${year}</strong><br>I trade devono avere stato "Chiuso" e prezzi di uscita inseriti per essere conteggiati.</div>`;
+    return;
+  }
+
+  // Calcola P&L per ogni trade
+  let totalProfit = 0, totalLoss = 0;
+  const rows = closedTrades.map(t => {
+    const exitSpread = t.exitP1 - t.exitP2;
+    const moveSpread = exitSpread - t.spread;
+    const pnl = (t.action === 'BUY' ? moveSpread : -moveSpread) * t.qty * t.pointPrice;
+    if (pnl >= 0) totalProfit += pnl;
+    else totalLoss += pnl;
+    return { ...t, pnl };
+  });
+
+  const grossPnl = totalProfit + totalLoss; // somma algebrica
+  const netPnl = grossPnl - commissions;
+  // Compenso con minus pregresse SOLO se ho plusvalenza netta
+  let taxBase = netPnl;
+  let lossesUsed = 0;
+  if (netPnl > 0 && priorLosses > 0) {
+    lossesUsed = Math.min(priorLosses, netPnl);
+    taxBase = netPnl - lossesUsed;
+  }
+  const taxDue = taxBase > 0 ? taxBase * rate : 0;
+  const remainingLosses = (priorLosses - lossesUsed) + (netPnl < 0 ? Math.abs(netPnl) : 0);
+
+  const tableRows = rows.slice(0, 20).map(t => `
+    <tr>
+      <td>${t.leg1.slice(0,15)}/${t.leg2.slice(0,15)}</td>
+      <td class="num ${t.pnl >= 0 ? 'pos' : 'neg'}">${t.pnl >= 0 ? '+' : ''}${currencySymbol}${t.pnl.toFixed(0)}</td>
+    </tr>
+  `).join('');
+
+  out.innerHTML = `
+    <div class="pnl-panel" style="margin-top: 14px;">
+      <div style="font-size: 13px; font-weight: 700; margin-bottom: 10px;">📋 Riepilogo Fiscale ${year}</div>
+      <div class="pnl-row"><span class="label">Trade chiusi nell'anno</span><span class="val">${closedTrades.length}</span></div>
+      <div class="pnl-row"><span class="label">Plusvalenze totali</span><span class="val pos">+${currencySymbol}${totalProfit.toFixed(2)}</span></div>
+      <div class="pnl-row"><span class="label">Minusvalenze totali</span><span class="val neg">${currencySymbol}${totalLoss.toFixed(2)}</span></div>
+      <div class="pnl-row"><span class="label">P&L lordo</span><span class="val ${grossPnl>=0?'pos':'neg'}">${grossPnl>=0?'+':''}${currencySymbol}${grossPnl.toFixed(2)}</span></div>
+      <div class="pnl-row"><span class="label">Commissioni IB</span><span class="val neg">-${currencySymbol}${commissions.toFixed(2)}</span></div>
+      <div class="pnl-row"><span class="label">P&L netto</span><span class="val ${netPnl>=0?'pos':'neg'}">${netPnl>=0?'+':''}${currencySymbol}${netPnl.toFixed(2)}</span></div>
+      ${lossesUsed > 0 ? `<div class="pnl-row"><span class="label">Compensazione minus pregresse</span><span class="val neg">-${currencySymbol}${lossesUsed.toFixed(2)}</span></div>` : ''}
+      <div class="pnl-row"><span class="label">Imponibile</span><span class="val">${currencySymbol}${Math.max(0,taxBase).toFixed(2)}</span></div>
+      <div class="pnl-row total"><span class="label">🇮🇹 IMPOSTA ${(rate*100).toFixed(0)}%</span><span class="val ${taxDue > 0 ? 'neg' : 'pos'}">${currencySymbol}${taxDue.toFixed(2)}</span></div>
+    </div>
+    ${remainingLosses > 0 ? `<div class="liquidation-alert ok" style="margin-top: 10px;"><strong>💼 Minusvalenze residue</strong><br>Hai ${currencySymbol}${remainingLosses.toFixed(2)} di minusvalenze da poter usare nei prossimi 4 anni.</div>` : ''}
+    ${closedTrades.length > 20 ? `<div style="font-size:11px;color:var(--text-faint);margin-top:8px;">Mostrando primi 20 trade su ${closedTrades.length}</div>` : ''}
+    <details style="margin-top: 12px;">
+      <summary style="cursor:pointer;font-size:13px;color:var(--text-dim);font-weight:600;">📊 Dettaglio trade chiusi</summary>
+      <table class="tax-table">
+        <thead><tr><th>Spread</th><th style="text-align:right;">P&L</th></tr></thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+    </details>
+  `;
+});
+
+// ============================================================
+// STRUMENTO 2: FRAZIONI CEREALI
+// ============================================================
+function updateFractionResult() {
+  const intVal = parseInt(document.getElementById('fracInteger').value);
+  const active = document.querySelector('.fraction-buttons button.active');
+  const fracVal = active ? parseFloat(active.dataset.frac) : 0;
+  const contracts = parseInt(document.getElementById('fracContracts').value) || 1;
+  const bushels = parseInt(document.getElementById('fracBushels').value) || 5000;
+
+  if (isNaN(intVal)) {
+    document.getElementById('fracResult').textContent = '—';
+    document.getElementById('fracValue').textContent = 'Inserisci un prezzo intero';
+    document.getElementById('fracPnl').textContent = '';
+    return;
+  }
+
+  const decimal = intVal + fracVal;
+  document.getElementById('fracResult').textContent = decimal.toFixed(2);
+
+  // Valore: il prezzo è in centesimi/bushel, quindi $ per contratto = (prezzo/100) * bushels
+  const valuePerContract = (decimal / 100) * bushels;
+  const total = valuePerContract * contracts;
+  document.getElementById('fracValue').textContent = `${intVal} ${fracVal === 0 ? '0' : (fracVal === 0.25 ? '1/4' : fracVal === 0.5 ? '1/2' : '3/4')} = ${decimal} centesimi/bushel`;
+
+  // Valore tick: 1/4 punto su 5000 bushels = $12.50 per contratto
+  const tickValue = 0.25 * bushels / 100;
+  document.getElementById('fracPnl').innerHTML = `
+    1 contratto da ${bushels} bushels @ ${decimal} = <strong style="color:var(--green);">${currencySymbol}${valuePerContract.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</strong> di valore nominale<br>
+    <span style="font-size:11px;">Tick di 1/4 cent = ${currencySymbol}${tickValue.toFixed(2)} per contratto · 1 punto pieno = ${currencySymbol}${(tickValue*4).toFixed(2)}</span>
+  `;
+}
+
+// ============================================================
+// STRUMENTO 3: ROLL COST
+// ============================================================
+document.getElementById('calcRollBtn').addEventListener('click', () => {
+  const cur = parseFloat(document.getElementById('rollCurrentSpread').value);
+  const next = parseFloat(document.getElementById('rollNewSpread').value);
+  const qty = parseInt(document.getElementById('rollQty').value) || 1;
+  const pp = parseFloat(document.getElementById('rollPointPrice').value) || 1000;
+  const com = parseFloat(document.getElementById('rollCommissions').value) || 0;
+  const out = document.getElementById('rollOutput');
+
+  if (isNaN(cur) || isNaN(next)) {
+    out.innerHTML = '<div class="callout" style="margin-top:12px;"><strong>Inserisci entrambi gli spread</strong></div>';
+    return;
+  }
+
+  // Differenza di prezzo tra il nuovo spread e quello attuale
+  // Quando rolli, di fatto vendi quello attuale e compri quello nuovo (o viceversa)
+  // Il "costo" del roll = (next - cur) * qty * pp se sei LONG, oppure (cur - next) * qty * pp se sei SHORT
+  // Mostro entrambi gli scenari perché dipende dal lato della posizione
+
+  const rollLong = (next - cur) * qty * pp + com; // se sei LONG e rolli avanti
+  const rollShort = (cur - next) * qty * pp + com; // se sei SHORT e rolli avanti
+
+  out.innerHTML = `
+    <div class="pnl-panel" style="margin-top: 14px;">
+      <div style="font-size: 13px; font-weight: 700; margin-bottom: 10px;">💸 Costo del Roll</div>
+      <div class="pnl-row"><span class="label">Spread attuale</span><span class="val">${cur.toFixed(4)}</span></div>
+      <div class="pnl-row"><span class="label">Spread nuovo (post-roll)</span><span class="val">${next.toFixed(4)}</span></div>
+      <div class="pnl-row"><span class="label">Differenza prezzi</span><span class="val">${(next-cur >= 0 ? '+' : '')}${(next-cur).toFixed(4)}</span></div>
+      <div class="pnl-row"><span class="label">Commissioni totali</span><span class="val neg">-${currencySymbol}${com.toFixed(2)}</span></div>
+      <div class="pnl-row total"><span class="label">Se LONG (compri il combo)</span><span class="val ${rollLong<=0?'pos':'neg'}">${rollLong<=0?'+':'-'}${currencySymbol}${Math.abs(rollLong).toFixed(2)}</span></div>
+      <div class="pnl-row" style="padding-top:8px;"><span class="label">Se SHORT (vendi il combo)</span><span class="val ${rollShort<=0?'pos':'neg'}">${rollShort<=0?'+':'-'}${currencySymbol}${Math.abs(rollShort).toFixed(2)}</span></div>
+    </div>
+    <div class="callout" style="margin-top: 10px;">
+      <strong>💡 Come leggerlo:</strong> "+" significa che il roll <strong>ti costa</strong> denaro (esci dalla posizione vecchia in perdita o entri in quella nuova a prezzo peggiore). "−" significa che il roll <strong>ti dà credito</strong>.
+    </div>
+  `;
+});
+
+// ============================================================
+// STRUMENTO 4: BREAK-EVEN
+// ============================================================
+document.getElementById('calcBeBtn').addEventListener('click', () => {
+  const action = document.getElementById('beAction').value;
+  const entry = parseFloat(document.getElementById('beEntry').value);
+  const qty = parseInt(document.getElementById('beQty').value) || 1;
+  const pp = parseFloat(document.getElementById('bePointPrice').value) || 1000;
+  const openCom = parseFloat(document.getElementById('beOpenCom').value) || 0;
+  const closeCom = parseFloat(document.getElementById('beCloseCom').value) || 0;
+  const out = document.getElementById('beOutput');
+
+  if (isNaN(entry)) {
+    out.innerHTML = '<div class="callout" style="margin-top:12px;"><strong>Inserisci lo spread di entrata</strong></div>';
+    return;
+  }
+
+  const totalCom = openCom + closeCom;
+  // Movimento necessario per coprire le commissioni
+  const moveNeeded = totalCom / (qty * pp);
+  // Break-even price: se BUY devi muoverti SU di moveNeeded, se SELL devi muoverti GIÙ
+  const breakEven = action === 'BUY' ? entry + moveNeeded : entry - moveNeeded;
+  // Target raddoppio commissioni (per avere R/R 1:1 considerando i costi)
+  const target1to1 = action === 'BUY' ? entry + 2 * moveNeeded : entry - 2 * moveNeeded;
+
+  out.innerHTML = `
+    <div class="pnl-panel" style="margin-top: 14px;">
+      <div style="font-size: 13px; font-weight: 700; margin-bottom: 10px;">💰 Punto di Pareggio</div>
+      <div class="pnl-row"><span class="label">Azione</span><span class="val">${action}</span></div>
+      <div class="pnl-row"><span class="label">Spread entrata</span><span class="val">${entry.toFixed(4)}</span></div>
+      <div class="pnl-row"><span class="label">Commissioni totali (open + close)</span><span class="val neg">-${currencySymbol}${totalCom.toFixed(2)}</span></div>
+      <div class="pnl-row"><span class="label">Movimento minimo richiesto</span><span class="val">${moveNeeded.toFixed(4)} punti</span></div>
+      <div class="pnl-row total"><span class="label">📍 Break-Even</span><span class="val">${breakEven.toFixed(4)}</span></div>
+      <div class="pnl-row" style="padding-top:8px;"><span class="label">Target per coprire 2× commissioni</span><span class="val pos">${target1to1.toFixed(4)}</span></div>
+    </div>
+    <div class="callout" style="margin-top: 10px;">
+      <strong>💡 Significato:</strong> per andare in pari dopo le commissioni, lo spread deve raggiungere <strong>${breakEven.toFixed(4)}</strong>. Qualsiasi prezzo migliore di questo è profitto reale.
+    </div>
+  `;
+});
+
+// ============================================================
+// STRUMENTO 5: RISK MANAGEMENT AVANZATO
+// ============================================================
+document.getElementById('runRiskBtn').addEventListener('click', async () => {
+  const allTrades = await loadTrades();
+  const openTrades = allTrades.filter(t => t.status === 'open');
+  const out = document.getElementById('riskOutput');
+
+  if (openTrades.length === 0) {
+    out.innerHTML = '<div class="callout"><strong>Nessun trade aperto</strong><br>Apri almeno un trade per vedere l\'analisi del portafoglio.</div>';
+    return;
+  }
+
+  // Raggruppa per famiglia di sottostanti
+  const families = {
+    'Energetici': ['CL', 'BZ', 'NG', 'HO', 'RB'],
+    'Cereali': ['ZC', 'ZW', 'ZS', 'ZO', 'XK', 'XW', 'XC'],
+    'Metalli': ['GC', 'SI', 'HG', 'PA', 'PL'],
+    'Volatilità': ['VX', 'VXN', 'VXM'],
+    'Tassi': ['ZN', 'ZB', 'ZF', 'ZT'],
+    'Altro': []
+  };
+  
+  function getFamily(legLabel) {
+    const upper = (legLabel || '').toUpperCase();
+    for (const [fam, tickers] of Object.entries(families)) {
+      for (const t of tickers) {
+        if (upper.startsWith(t)) return fam;
+      }
+    }
+    return 'Altro';
+  }
+
+  // Conta per famiglia (uso primary leg)
+  const byFamily = {};
+  let totalMargin = 0;
+  openTrades.forEach(t => {
+    const fam = getFamily(t.leg1);
+    if (!byFamily[fam]) byFamily[fam] = { count: 0, margin: 0, maxLoss: 0 };
+    byFamily[fam].count++;
+    if (t.spanMargin) {
+      const m = t.spanMargin * (t.qty || 1);
+      byFamily[fam].margin += m;
+      totalMargin += m;
+    }
+    if (t.stopSpread !== null && t.stopSpread !== undefined && t.spread !== null) {
+      const stopMove = t.action === 'BUY' ? (t.spread - t.stopSpread) : (t.stopSpread - t.spread);
+      if (stopMove > 0) byFamily[fam].maxLoss += stopMove * (t.qty || 1) * t.pointPrice;
+    }
+  });
+
+  // Identifica concentrazione
+  const sorted = Object.entries(byFamily).filter(([_,v]) => v.count > 0).sort((a,b) => b[1].margin - a[1].margin);
+  const topFam = sorted[0];
+  const topPct = totalMargin > 0 ? (topFam[1].margin / totalMargin) * 100 : 0;
+
+  let concentrationWarn = '';
+  if (topPct > 70 && sorted.length > 1) {
+    concentrationWarn = `<div class="liquidation-alert critical" style="margin-top:10px;"><strong>⚠ Alta concentrazione</strong><br>Il ${topPct.toFixed(0)}% del tuo margine è su <strong>${topFam[0]}</strong>. Se quel mercato ha un evento avverso, sei molto esposto. Considera diversificazione.</div>`;
+  } else if (topPct > 50) {
+    concentrationWarn = `<div class="liquidation-alert warn" style="margin-top:10px;"><strong>Concentrazione moderata</strong><br>${topPct.toFixed(0)}% del margine è su <strong>${topFam[0]}</strong>.</div>`;
+  } else if (sorted.length >= 3) {
+    concentrationWarn = `<div class="liquidation-alert ok" style="margin-top:10px;"><strong>✓ Buona diversificazione</strong><br>Posizioni distribuite su ${sorted.length} famiglie diverse.</div>`;
+  }
+
+  // Stress test scenarios
+  const cap = globalCapital || 0;
+  const scenarios = [
+    { name: '🟢 Stress lieve: -10% sui trade aperti', mult: 0.10 },
+    { name: '🟡 Stress medio: -25% sui trade aperti', mult: 0.25 },
+    { name: '🔴 Stress severo: -50% sui trade aperti', mult: 0.50 },
+    { name: '⚫ Worst case: SPAN raddoppia (+100%)', spanMult: 2.0 }
+  ];
+
+  let totalStopLoss = Object.values(byFamily).reduce((s, f) => s + f.maxLoss, 0);
+
+  const stressRows = scenarios.map(s => {
+    let loss;
+    if (s.spanMult) {
+      const newMargin = totalMargin * s.spanMult;
+      const needed = newMargin - totalMargin;
+      loss = needed; // capitale extra richiesto
+      const pct = cap > 0 ? (newMargin / cap) * 100 : 0;
+      return `<div class="pnl-row"><span class="label">${s.name}</span><span class="val ${pct > 70 ? 'neg' : pct > 50 ? '' : 'pos'}">${pct.toFixed(0)}% capitale</span></div>`;
+    } else {
+      loss = totalStopLoss * s.mult;
+      const pct = cap > 0 ? (loss / cap) * 100 : 0;
+      return `<div class="pnl-row"><span class="label">${s.name}</span><span class="val neg">-${currencySymbol}${loss.toFixed(0)} (${pct.toFixed(1)}%)</span></div>`;
+    }
+  }).join('');
+
+  const familyRows = sorted.map(([fam, v]) => {
+    const pct = totalMargin > 0 ? (v.margin / totalMargin) * 100 : 0;
+    return `
+      <div class="correlation-row">
+        <div style="min-width:90px;font-weight:600;">${fam}</div>
+        <div style="font-size:11px;color:var(--text-faint);min-width:65px;">${v.count} trade</div>
+        <div class="correlation-bar"><div class="correlation-fill" style="width:${pct}%;"></div></div>
+        <div class="correlation-value">${pct.toFixed(0)}%</div>
+      </div>
+    `;
+  }).join('');
+
+  out.innerHTML = `
+    <div style="font-size:13px;font-weight:700;margin-bottom:10px;">📂 Concentrazione per famiglia</div>
+    <div class="correlation-grid">${familyRows}</div>
+    ${concentrationWarn}
+    
+    <div style="font-size:13px;font-weight:700;margin: 16px 0 10px;">🧪 Stress Test</div>
+    <div class="pnl-panel">${stressRows}</div>
+    
+    ${!cap ? '<div class="callout" style="margin-top:10px;"><strong>⚠ Capitale non impostato</strong> — i % sopra non sono calcolabili. Vai in Impostazioni.</div>' : ''}
+    
+    <div style="font-size:11px;color:var(--text-faint);margin-top:10px;line-height:1.5;">
+      💡 <strong style="color:var(--text-dim);">Note:</strong> i trade della stessa famiglia tendono a muoversi insieme. Se hai 3 spread sui cereali e arriva una notizia macro che colpisce il settore agricolo, perdi su tutti contemporaneamente. La diversificazione tra famiglie riduce questo rischio.
+    </div>
+  `;
+});
+
+// ============================================================
+// STRUMENTO 6: CALENDARIO STAGIONALE
+// ============================================================
+const seasonalSpreads = {
+  1: { // Gennaio
+    name: 'Gennaio',
+    spreads: [
+      { spread: 'NGJ-NGM (Apr-Giu)', desc: 'Heating premium drops as winter ends', dir: 'SELL', sa: 'NGJ26-NGM26' },
+      { spread: 'ZWN-ZWZ (Lug-Dic)', desc: 'Wheat: harvest expectations build', dir: 'monitor', sa: 'ZWN26-ZWZ26' }
+    ]
+  },
+  2: {
+    name: 'Febbraio',
+    spreads: [
+      { spread: 'CLM-CLZ (Giu-Dic)', desc: 'Crude: summer driving anticipation', dir: 'BUY', sa: 'CLM26-CLZ26' },
+      { spread: 'HOH-HOJ (Mar-Apr)', desc: 'Heating oil winter premium fade', dir: 'SELL', sa: 'HOH26-HOJ26' }
+    ]
+  },
+  3: {
+    name: 'Marzo',
+    spreads: [
+      { spread: 'RBM-RBU (Giu-Set)', desc: 'Gasoline summer demand', dir: 'BUY', sa: 'RBM26-RBU26' },
+      { spread: 'ZCN-ZCZ (Lug-Dic)', desc: 'Corn: planting weather risk', dir: 'monitor', sa: 'ZCN26-ZCZ26' }
+    ]
+  },
+  4: {
+    name: 'Aprile',
+    spreads: [
+      { spread: 'ZSN-ZSX (Lug-Nov)', desc: 'Soybean: old crop vs new crop', dir: 'monitor', sa: 'ZSN26-ZSX26' },
+      { spread: 'CLN-CLZ (Lug-Dic)', desc: 'Crude: peak driving season', dir: 'BUY', sa: 'CLN26-CLZ26' }
+    ]
+  },
+  5: {
+    name: 'Maggio',
+    spreads: [
+      { spread: 'ZCN-ZCU (Lug-Set)', desc: 'Corn: weather market begins', dir: 'monitor', sa: 'ZCN26-ZCU26' },
+      { spread: 'NGN-NGV (Lug-Ott)', desc: 'Nat gas: injection season', dir: 'BUY', sa: 'NGN26-NGV26' }
+    ]
+  },
+  6: {
+    name: 'Giugno',
+    spreads: [
+      { spread: 'ZSN-ZSQ (Lug-Ago)', desc: 'Soybean: weather premium peak', dir: 'BUY', sa: 'ZSN26-ZSQ26' },
+      { spread: 'CLU-CLZ (Set-Dic)', desc: 'Crude: post-summer transition', dir: 'SELL', sa: 'CLU26-CLZ26' }
+    ]
+  },
+  7: {
+    name: 'Luglio',
+    spreads: [
+      { spread: 'ZCU-ZCZ (Set-Dic)', desc: 'Corn: harvest pressure approaches', dir: 'SELL', sa: 'ZCU26-ZCZ26' },
+      { spread: 'VXN-VXU (Lug-Set)', desc: 'VIX summer volatility patterns', dir: 'monitor', sa: 'VXN26-VXU26' }
+    ]
+  },
+  8: {
+    name: 'Agosto',
+    spreads: [
+      { spread: 'ZSQ-ZSX (Ago-Nov)', desc: 'Soybean: new crop emerges', dir: 'SELL', sa: 'ZSQ26-ZSX26' },
+      { spread: 'HOZ-HOH (Dic-Mar)', desc: 'Heating oil winter buildup', dir: 'BUY', sa: 'HOZ26-HOH27' }
+    ]
+  },
+  9: {
+    name: 'Settembre',
+    spreads: [
+      { spread: 'ZCZ-ZCH (Dic-Mar)', desc: 'Corn: harvest low expected', dir: 'BUY', sa: 'ZCZ26-ZCH27' },
+      { spread: 'CLZ-CLM (Dic-Giu)', desc: 'Crude: contango steepens', dir: 'monitor', sa: 'CLZ26-CLM27' }
+    ]
+  },
+  10: {
+    name: 'Ottobre',
+    spreads: [
+      { spread: 'NGX-NGF (Nov-Gen)', desc: 'Nat gas: winter premium builds', dir: 'BUY', sa: 'NGX26-NGF27' },
+      { spread: 'ZWZ-ZWH (Dic-Mar)', desc: 'Wheat: storage costs', dir: 'monitor', sa: 'ZWZ26-ZWH27' }
+    ]
+  },
+  11: {
+    name: 'Novembre',
+    spreads: [
+      { spread: 'HOG-HOJ (Feb-Apr)', desc: 'Heating oil winter peak', dir: 'BUY', sa: 'HOG27-HOJ27' },
+      { spread: 'GCG-GCJ (Feb-Apr)', desc: 'Gold seasonal tendency', dir: 'monitor', sa: 'GCG27-GCJ27' }
+    ]
+  },
+  12: {
+    name: 'Dicembre',
+    spreads: [
+      { spread: 'NGF-NGH (Gen-Mar)', desc: 'Nat gas withdrawal season', dir: 'BUY', sa: 'NGF27-NGH27' },
+      { spread: 'CLH-CLM (Mar-Giu)', desc: 'Crude: spring refinery shift', dir: 'monitor', sa: 'CLH27-CLM27' }
+    ]
+  }
+};
+
+function renderSeasonalCalendar() {
+  const container = document.getElementById('seasonalCalendar');
+  if (!container) return;
+  const currentMonth = new Date().getMonth() + 1;
+  
+  let html = '';
+  for (let m = 1; m <= 12; m++) {
+    const data = seasonalSpreads[m];
+    if (!data) continue;
+    const isCurrent = m === currentMonth;
+    html += `
+      <div class="month-row ${isCurrent ? 'current' : ''}">
+        <h4>${data.name} ${isCurrent ? '<span class="current-tag">MESE CORRENTE</span>' : ''}</h4>
+        ${data.spreads.map(s => {
+          const dirColor = s.dir === 'BUY' ? 'var(--green)' : s.dir === 'SELL' ? 'var(--red)' : 'var(--amber)';
+          const dirLabel = s.dir === 'monitor' ? '👁 MONITOR' : s.dir;
+          return `
+            <div class="spread-suggestion">
+              <strong>${s.spread}</strong> <span style="color:${dirColor};font-weight:700;font-size:11px;">[${dirLabel}]</span><br>
+              ${s.desc}<br>
+              <a href="https://www.seasonalgo.com/analyze/builder?spread=${encodeURIComponent(s.sa)}" target="_blank" rel="noopener" class="sa-link">🔗 Apri su SeasonAlgo →</a>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }
+  container.innerHTML = html + `
+    <div class="callout" style="margin-top:14px;">
+      <strong>⚠ Importante:</strong> questo è solo un calendario di <strong>riferimento generale</strong> basato su pattern stagionali storici comuni. <strong>Non sostituisce l'analisi su SeasonAlgo</strong>, dove vedi i pattern 5y/15y reali, volume, FND e la Spread Matrix per quei contratti specifici. Verifica sempre prima di tradare.
     </div>
   `;
 }
