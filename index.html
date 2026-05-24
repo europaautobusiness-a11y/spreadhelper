@@ -921,6 +921,63 @@
     text-align: right;
   }
 
+  /* Quick status toggle */
+  .status-toggle {
+    background: var(--bg-elev);
+    border: 1px solid var(--border-bright);
+    color: var(--text-dim);
+    padding: 4px 8px;
+    border-radius: 5px;
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-left: 6px;
+    transition: all 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    vertical-align: middle;
+  }
+  .status-toggle:active { transform: scale(0.94); }
+  .status-toggle:hover { color: var(--text); border-color: var(--green); }
+  .status-toggle.to-open { color: var(--green); border-color: var(--green); background: var(--green-glow); }
+  .status-toggle.to-closed { color: var(--blue); border-color: var(--blue); background: var(--blue-glow); }
+  .status-toggle.to-planned { color: var(--text-dim); }
+
+  /* Quick close modal */
+  .quick-close-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.8);
+    backdrop-filter: blur(4px);
+    z-index: 200;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .quick-close-modal.show { display: flex; animation: fadeIn 0.2s; }
+  .quick-close-box {
+    background: var(--bg-card);
+    border: 1px solid var(--border-bright);
+    border-radius: 14px;
+    padding: 20px;
+    max-width: 460px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .quick-close-box h3 {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .quick-close-box .subtitle {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-bottom: 14px;
+  }
+
   /* Storage indicator */
   .storage-info {
     font-size: 11px; color: var(--text-faint); padding: 10px 12px;
@@ -1144,9 +1201,9 @@
       </p>
       <div class="row">
         <div class="field">
-          <label>Margine SPAN ($/spread)</label>
-          <input type="number" id="spanMargin" step="10" inputmode="decimal" placeholder="800">
-          <span class="hint">Lo vedi su TWS Preview</span>
+          <label>Margine <strong>Iniziale</strong> (/spread)</label>
+          <input type="number" id="spanMargin" step="1" inputmode="decimal" placeholder="463">
+          <span class="hint">Da TWS → Modifica Iniziale</span>
         </div>
         <div class="field">
           <label>Stato del Trade</label>
@@ -1155,20 +1212,23 @@
             <option value="open">✅ Aperto (in posizione)</option>
             <option value="closed">📁 Chiuso</option>
           </select>
-          <span class="hint">Solo "Aperti" contano nel margine totale</span>
+          <span class="hint">Solo "Aperti" pesano sul margine</span>
         </div>
       </div>
       <div class="row">
         <div class="field">
-          <label>Maintenance %</label>
-          <input type="number" id="maintenancePct" step="1" inputmode="numeric" value="85" min="50" max="100">
-          <span class="hint">% di Initial (default 85)</span>
+          <label>Margine <strong>Mantenimento</strong> (/spread)</label>
+          <input type="number" id="maintenanceMargin" step="1" inputmode="decimal" placeholder="400">
+          <span class="hint">Da TWS → Modifica Mantenimento</span>
         </div>
         <div class="field">
           <label>Rischio max per trade %</label>
           <input type="number" id="riskPct" step="0.5" inputmode="decimal" value="2" min="0.1" max="20">
           <span class="hint">Della liquidità totale</span>
         </div>
+      </div>
+      <div style="background:var(--bg-elev);border-radius:6px;padding:8px 10px;font-size:11px;color:var(--text-dim);line-height:1.5;margin-top:8px;">
+        💡 <strong style="color:var(--text);">Dove trovarli su TWS:</strong> prima di confermare l'ordine, nella schermata "Anteprima ordine" → riquadro <strong>Saldi (in EUR)</strong> → colonna <strong>Modifica</strong> → righe "Margine iniziale" e "Margine di mantenimento". Inserisci entrambi qui sotto.
       </div>
     </div>
 
@@ -1632,6 +1692,33 @@
   </section>
 </div>
 
+<!-- Modale chiusura rapida trade (per inserire prezzi uscita al volo) -->
+<div class="quick-close-modal" id="quickCloseModal">
+  <div class="quick-close-box">
+    <h3>📁 Chiudi Trade</h3>
+    <div class="subtitle" id="quickCloseName">—</div>
+    <p style="font-size: 13px; color: var(--text-dim); margin-bottom: 12px;">
+      Inserisci i prezzi di uscita (opzionale, puoi saltare e farlo dopo).
+    </p>
+    <div class="row">
+      <div class="field">
+        <label id="quickCloseLeg1Label">Leg 1 uscita</label>
+        <input type="number" id="quickClosePrice1" step="0.01" inputmode="decimal" placeholder="0.00">
+      </div>
+      <div class="field">
+        <label id="quickCloseLeg2Label">Leg 2 uscita</label>
+        <input type="number" id="quickClosePrice2" step="0.01" inputmode="decimal" placeholder="0.00">
+      </div>
+    </div>
+    <div id="quickClosePnlPreview" style="margin: 10px 0; text-align: center; font-size: 14px;"></div>
+    <div class="btn-row" style="margin-top: 14px;">
+      <button class="btn" id="quickCloseConfirm">✓ Chiudi Trade</button>
+      <button class="btn secondary" id="quickCloseSkip">Chiudi senza prezzi</button>
+    </div>
+    <button class="btn secondary" id="quickCloseCancel" style="margin-top: 8px; width: 100%; opacity: 0.7;">Annulla</button>
+  </div>
+</div>
+
 <!-- Modale dettagli trade -->
 <div class="modal-overlay" id="detailsModal">
   <div class="modal">
@@ -2076,12 +2163,12 @@ function compute() {
     const stopSpread = parseFloat(document.getElementById('stopSpread').value);
     const capital = globalCapital; // dal settings globale
     const spanMargin = parseFloat(document.getElementById('spanMargin').value);
-    const maintPct = parseFloat(document.getElementById('maintenancePct').value) || 85;
+    const maintenanceMargin = parseFloat(document.getElementById('maintenanceMargin').value);
     const riskPct = parseFloat(document.getElementById('riskPct').value) || 2;
     chart = buildTimeChart(action, spreadPrice, qty, pointPrice, leg1Label, leg2Label, entryDate, exitDateTarget, targetSpread, stopSpread);
     payoff = buildPayoffChart(action, spreadPrice, qty, pointPrice, leg1Label, leg2Label);
     projection = buildProjection(action, spreadPrice, qty, pointPrice, targetSpread, stopSpread);
-    marginRisk = buildMarginRisk(action, spreadPrice, qty, pointPrice, stopSpread, capital, spanMargin, maintPct, riskPct);
+    marginRisk = buildMarginRisk(action, spreadPrice, qty, pointPrice, stopSpread, capital, spanMargin, maintenanceMargin, riskPct);
   }
 
   output.innerHTML = `
@@ -2131,7 +2218,7 @@ function compute() {
     targetSpread: isNaN(parseFloat(document.getElementById('targetSpread').value)) ? null : parseFloat(document.getElementById('targetSpread').value),
     stopSpread: isNaN(parseFloat(document.getElementById('stopSpread').value)) ? null : parseFloat(document.getElementById('stopSpread').value),
     spanMargin: isNaN(parseFloat(document.getElementById('spanMargin').value)) ? null : parseFloat(document.getElementById('spanMargin').value),
-    maintenancePct: parseFloat(document.getElementById('maintenancePct').value) || 85,
+    maintenanceMargin: isNaN(parseFloat(document.getElementById('maintenanceMargin').value)) ? null : parseFloat(document.getElementById('maintenanceMargin').value),
     riskPct: parseFloat(document.getElementById('riskPct').value) || 2,
     status: document.getElementById('tradeStatus').value || 'planned'
   };
@@ -2414,12 +2501,20 @@ function buildProjection(action, entrySpread, qty, pointPrice, targetSpread, sto
 // ============================================================
 // MARGINE & RISCHIO LIQUIDAZIONE
 // ============================================================
-function buildMarginRisk(action, entrySpread, qty, pointPrice, stopSpread, capital, spanMargin, maintPct, riskPct) {
+function buildMarginRisk(action, entrySpread, qty, pointPrice, stopSpread, capital, spanMargin, maintenanceMargin, riskPct) {
   // Se mancano i dati di base, non mostrare nulla
   if (isNaN(capital) || isNaN(spanMargin) || capital <= 0 || spanMargin <= 0) return '';
   
   const totalMarginInitial = spanMargin * qty;
-  const totalMarginMaint = totalMarginInitial * (maintPct / 100);
+  // Se l'utente ha inserito il maintenance, usalo. Altrimenti stima all'85% con avviso
+  let totalMarginMaint, maintIsEstimated;
+  if (!isNaN(maintenanceMargin) && maintenanceMargin > 0) {
+    totalMarginMaint = maintenanceMargin * qty;
+    maintIsEstimated = false;
+  } else {
+    totalMarginMaint = totalMarginInitial * 0.85;
+    maintIsEstimated = true;
+  }
   const pctOfCapital = (totalMarginInitial / capital) * 100;
   
   // Cuscinetto disponibile = capitale - margine maintenance
@@ -2523,7 +2618,7 @@ function buildMarginRisk(action, entrySpread, qty, pointPrice, stopSpread, capit
       </div>
       <div class="risk-rows" style="margin-top:12px;">
         <div class="pnl-row"><span class="label">Margine Initial totale</span><span class="val">${currencySymbol}${totalMarginInitial.toFixed(0)}</span></div>
-        <div class="pnl-row"><span class="label">Margine Maintenance</span><span class="val">${currencySymbol}${totalMarginMaint.toFixed(0)}</span></div>
+        <div class="pnl-row"><span class="label">Margine Maintenance${maintIsEstimated ? ' <span style="font-size:10px;color:var(--amber);">(stimato 85%)</span>' : ''}</span><span class="val">${currencySymbol}${totalMarginMaint.toFixed(0)}</span></div>
         <div class="pnl-row"><span class="label">Cuscinetto disponibile</span><span class="val ${buffer > 0 ? 'pos' : 'neg'}">${currencySymbol}${buffer.toFixed(0)}</span></div>
         <div class="pnl-row"><span class="label">Movimento max contro di te</span><span class="val">${maxAdverseMove.toFixed(2)} punti</span></div>
         <div class="pnl-row"><span class="label">Spread al prezzo di liquidazione</span><span class="val ${riskClass}">${mcSpreadPrice.toFixed(2)}</span></div>
@@ -3215,7 +3310,6 @@ document.getElementById('resetBtn').addEventListener('click', () => {
     if (i.type !== 'date') {
       if (i.id === 'qty') i.value = '1';
       else if (i.id === 'pointPrice') i.value = '1000';
-      else if (i.id === 'maintenancePct') i.value = '85';
       else if (i.id === 'riskPct') i.value = '2';
       else if (i.id === 'psRiskPct') i.value = '2';
       else if (i.id === 'psMarginPct') i.value = '40';
@@ -3330,7 +3424,12 @@ function loadTradeIntoForm(r) {
 
   // Margine
   if (r.spanMargin !== null && r.spanMargin !== undefined) document.getElementById('spanMargin').value = r.spanMargin;
-  if (r.maintenancePct) document.getElementById('maintenancePct').value = r.maintenancePct;
+  if (r.maintenanceMargin !== null && r.maintenanceMargin !== undefined) {
+    document.getElementById('maintenanceMargin').value = r.maintenanceMargin;
+  } else if (r.maintenancePct && r.spanMargin) {
+    // Retrocompatibilità: trade vecchi avevano solo la % → la converto in valore assoluto
+    document.getElementById('maintenanceMargin').value = (r.spanMargin * r.maintenancePct / 100).toFixed(0);
+  }
   if (r.riskPct) document.getElementById('riskPct').value = r.riskPct;
   if (r.status) document.getElementById('tradeStatus').value = r.status;
 
@@ -3509,9 +3608,17 @@ async function renderRiskDashboard() {
   openTrades.forEach(t => {
     if (t.spanMargin && t.spanMargin > 0) {
       const tradeMargin = t.spanMargin * (t.qty || 1);
-      const maintPct = t.maintenancePct || 85;
       totalMargin += tradeMargin;
-      totalMaintenance += tradeMargin * (maintPct / 100);
+      // Maintenance: priorità al valore diretto, fallback alla % (retrocompatibilità)
+      let tradeMaint;
+      if (t.maintenanceMargin && t.maintenanceMargin > 0) {
+        tradeMaint = t.maintenanceMargin * (t.qty || 1);
+      } else if (t.maintenancePct) {
+        tradeMaint = tradeMargin * (t.maintenancePct / 100);
+      } else {
+        tradeMaint = tradeMargin * 0.85; // default
+      }
+      totalMaintenance += tradeMaint;
       tradesWithMargin++;
     }
     if (t.stopSpread !== null && t.stopSpread !== undefined && t.spread !== null && t.spread !== undefined && t.pointPrice) {
@@ -3667,6 +3774,11 @@ async function renderReminders() {
     const status = r.status || 'planned';
     const statusLabels = { planned: '📋 Pianif.', open: '✅ Aperto', closed: '📁 Chiuso' };
     const statusBadge = `<span class="status-badge ${status}">${statusLabels[status]}</span>`;
+    // Quick toggle: stato successivo nel ciclo
+    const nextStatus = { planned: 'open', open: 'closed', closed: 'planned' }[status];
+    const nextLabels = { open: '→ Apri', closed: '→ Chiudi', planned: '↺ Riapri' };
+    const toggleClass = `to-${nextStatus}`;
+    const quickToggle = `<button class="status-toggle ${toggleClass}" data-action="quickToggle" data-id="${r.id}" data-next="${nextStatus}" title="Cambia stato rapidamente">${nextLabels[nextStatus]}</button>`;
     // Mostra margine impegnato se ha spanMargin
     let marginInfo = '';
     if (r.spanMargin && status === 'open') {
@@ -3677,7 +3789,7 @@ async function renderReminders() {
       <div class="reminder-item ${urgency}">
         <div class="reminder-head" style="cursor:pointer;" data-action="view" data-id="${r.id}">
           <div style="min-width:0;flex:1;">
-            <div class="reminder-name">${r.leg1} / ${r.leg2} ${statusBadge}</div>
+            <div class="reminder-name">${r.leg1} / ${r.leg2} ${statusBadge}${quickToggle}</div>
             <div class="reminder-meta">${r.type} · ${r.qty}x · entrata @ ${r.spread!==null?r.spread.toFixed(4):'—'}</div>
             ${marginInfo}
             ${pnlBadge}
@@ -3703,11 +3815,13 @@ async function renderReminders() {
 
   // Listener su tutti gli elementi con data-action
   list.querySelectorAll('[data-action]').forEach(b => {
-    b.addEventListener('click', () => handleAction(b.dataset.action, b.dataset.id, items));
+    b.addEventListener('click', (e) => handleAction(b.dataset.action, b.dataset.id, items, b, e));
   });
 }
 
-async function handleAction(action, id, items) {
+async function handleAction(action, id, items, btnEl, e) {
+  // stopPropagation per evitare che il click sul toggle apra anche la modale (es. è dentro reminder-head)
+  if (e && e.stopPropagation) e.stopPropagation();
   const r = items.find(x => x.id === id);
   if (!r) return;
   if (action === 'delete') {
@@ -3716,6 +3830,153 @@ async function handleAction(action, id, items) {
     }
   } else if (action === 'ics') downloadICS(r);
   else if (action === 'view') openDetailsModal(r);
+  else if (action === 'quickToggle') {
+    const next = btnEl.dataset.next;
+    await quickChangeStatus(r, next);
+  }
+}
+
+// ============================================================
+// QUICK CHANGE STATUS (un click cambia stato rapidamente)
+// ============================================================
+async function quickChangeStatus(trade, newStatus) {
+  // Caso speciale: passaggio a "closed" → chiedi se vuoi inserire prezzi uscita
+  if (newStatus === 'closed' && trade.status === 'open') {
+    openQuickCloseModal(trade);
+    return;
+  }
+  
+  // Altri casi: cambia stato direttamente, senza conferma (è veloce)
+  trade.status = newStatus;
+  trade.updated = Date.now();
+  try {
+    await dbPut(trade);
+    await renderReminders();
+    await updateBadge();
+    await checkAlerts();
+    // Piccolo toast di conferma
+    showToast(newStatus === 'open' ? '✅ Trade aperto' : newStatus === 'closed' ? '📁 Trade chiuso' : '📋 Trade rimesso in pianificato');
+  } catch(e) {
+    alert('Errore: ' + e.message);
+  }
+}
+
+// Toast di conferma in basso
+function showToast(message) {
+  let toast = document.getElementById('toastEl');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'toastEl';
+    toast.style.cssText = 'position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:var(--bg-card);border:1px solid var(--green);border-radius:10px;padding:12px 18px;font-size:14px;font-weight:600;color:var(--text);z-index:1000;box-shadow:0 4px 16px rgba(0,229,137,0.2);opacity:0;transition:opacity 0.25s;';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.style.opacity = '1';
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => { toast.style.opacity = '0'; }, 1800);
+}
+
+// ============================================================
+// QUICK CLOSE MODAL (chiusura veloce con prezzi opzionali)
+// ============================================================
+let quickCloseTrade = null;
+
+function openQuickCloseModal(trade) {
+  quickCloseTrade = trade;
+  const modal = document.getElementById('quickCloseModal');
+  document.getElementById('quickCloseName').textContent = `${trade.leg1} / ${trade.leg2}`;
+  document.getElementById('quickCloseLeg1Label').textContent = `${trade.leg1.slice(0, 20)} uscita`;
+  document.getElementById('quickCloseLeg2Label').textContent = `${trade.leg2.slice(0, 20)} uscita`;
+  document.getElementById('quickClosePrice1').value = '';
+  document.getElementById('quickClosePrice2').value = '';
+  document.getElementById('quickClosePnlPreview').innerHTML = '';
+  modal.classList.add('show');
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => document.getElementById('quickClosePrice1').focus(), 100);
+}
+
+function closeQuickCloseModal() {
+  document.getElementById('quickCloseModal').classList.remove('show');
+  document.body.style.overflow = '';
+  quickCloseTrade = null;
+}
+
+// Preview P&L mentre l'utente digita
+['quickClosePrice1', 'quickClosePrice2'].forEach(id => {
+  // L'event listener viene aggiunto una sola volta nell'init
+});
+
+function previewQuickClosePnl() {
+  if (!quickCloseTrade) return;
+  const t = quickCloseTrade;
+  const e1 = parseFloat(document.getElementById('quickClosePrice1').value);
+  const e2 = parseFloat(document.getElementById('quickClosePrice2').value);
+  const el = document.getElementById('quickClosePnlPreview');
+  if (isNaN(e1) || isNaN(e2)) {
+    el.innerHTML = '';
+    return;
+  }
+  const exitSpread = e1 - e2;
+  const moveSpread = exitSpread - t.spread;
+  const pnl = (t.action === 'BUY' ? moveSpread : -moveSpread) * t.qty * t.pointPrice;
+  const cls = pnl >= 0 ? 'pos' : 'neg';
+  const color = pnl >= 0 ? 'var(--green)' : 'var(--red)';
+  el.innerHTML = `
+    <div style="padding:10px;background:var(--bg);border:1px solid ${color};border-radius:8px;">
+      <div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.1em;font-weight:700;">P&L Stimato</div>
+      <div style="font-size:24px;font-weight:800;color:${color};font-family:'JetBrains Mono',monospace;margin-top:4px;">
+        ${pnl >= 0 ? '+' : ''}${currencySymbol}${pnl.toFixed(2)}
+      </div>
+      <div style="font-size:11px;color:var(--text-faint);margin-top:2px;">Spread uscita: ${exitSpread.toFixed(4)} (mov. ${moveSpread >= 0 ? '+' : ''}${moveSpread.toFixed(4)})</div>
+    </div>
+  `;
+}
+
+// Inizializzo handler una volta sola
+let quickCloseHandlersAttached = false;
+function attachQuickCloseHandlers() {
+  if (quickCloseHandlersAttached) return;
+  quickCloseHandlersAttached = true;
+  document.getElementById('quickClosePrice1').addEventListener('input', previewQuickClosePnl);
+  document.getElementById('quickClosePrice2').addEventListener('input', previewQuickClosePnl);
+  document.getElementById('quickCloseCancel').addEventListener('click', closeQuickCloseModal);
+  document.getElementById('quickCloseSkip').addEventListener('click', async () => {
+    if (!quickCloseTrade) return;
+    quickCloseTrade.status = 'closed';
+    quickCloseTrade.updated = Date.now();
+    await dbPut(quickCloseTrade);
+    closeQuickCloseModal();
+    await renderReminders();
+    await updateBadge();
+    showToast('📁 Trade chiuso (senza P&L)');
+  });
+  document.getElementById('quickCloseConfirm').addEventListener('click', async () => {
+    if (!quickCloseTrade) return;
+    const e1 = parseFloat(document.getElementById('quickClosePrice1').value);
+    const e2 = parseFloat(document.getElementById('quickClosePrice2').value);
+    if (isNaN(e1) || isNaN(e2)) {
+      alert('Inserisci entrambi i prezzi, oppure usa "Chiudi senza prezzi"');
+      return;
+    }
+    const t = quickCloseTrade;
+    t.status = 'closed';
+    t.exitP1 = e1;
+    t.exitP2 = e2;
+    t.exitSpread = e1 - e2;
+    const moveSpread = t.exitSpread - t.spread;
+    t.pnl = (t.action === 'BUY' ? moveSpread : -moveSpread) * t.qty * t.pointPrice;
+    t.updated = Date.now();
+    await dbPut(t);
+    closeQuickCloseModal();
+    await renderReminders();
+    await updateBadge();
+    const sign = t.pnl >= 0 ? '+' : '';
+    showToast(`📁 Chiuso · P&L: ${sign}${currencySymbol}${t.pnl.toFixed(0)}`);
+  });
+  // Tap fuori dalla box → chiudi
+  document.getElementById('quickCloseModal').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('quickCloseModal')) closeQuickCloseModal();
+  });
 }
 
 // ============================================================
@@ -3761,7 +4022,7 @@ function openDetailsModal(r) {
                            r.entryDate, r.exitDateTarget, r.targetSpread, r.stopSpread);
     payoff = buildPayoffChart(action, spreadPrice, qty, pointPrice);
     projection = buildProjection(action, spreadPrice, qty, pointPrice, r.targetSpread, r.stopSpread);
-    marginRisk = buildMarginRisk(action, spreadPrice, qty, pointPrice, r.stopSpread, globalCapital, r.spanMargin, r.maintenancePct || 85, r.riskPct || 2);
+    marginRisk = buildMarginRisk(action, spreadPrice, qty, pointPrice, r.stopSpread, globalCapital, r.spanMargin, r.maintenanceMargin, r.riskPct || 2);
   }
 
   // P&L reale se ci sono prezzi di uscita
@@ -4100,6 +4361,7 @@ async function requestPersistent() {
   await requestPersistent();
   await loadCurrency();
   await loadGlobalCapital();
+  attachQuickCloseHandlers();
   if ('Notification' in window) { notifPermission = Notification.permission; updateNotifStatus(); }
   await updateBadge();
   await checkAlerts();
