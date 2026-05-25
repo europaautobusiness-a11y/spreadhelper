@@ -1266,7 +1266,10 @@
           <textarea id="reminderNotes" placeholder="Pattern stagionale, considerazioni, ecc."></textarea>
         </div>
       </div>
-      <button class="btn amber" id="addReminderBtn" style="margin-top: 8px;">Salva Trade</button>
+      <button class="btn amber" id="addReminderBtn" style="margin-top: 8px;">📅 Salva Trade + Calendar</button>
+      <div style="font-size: 11px; color: var(--text-faint); text-align: center; margin-top: 6px;">
+        Al salvataggio scarica anche il file per Google Calendar (con tutti i dettagli del trade)
+      </div>
     </div>
 
     <div class="btn-row" style="margin-top: 8px;">
@@ -3355,10 +3358,21 @@ document.getElementById('addReminderBtn').addEventListener('click', async () => 
   try {
     await dbPut(trade);
     const btn = document.getElementById('addReminderBtn');
-    btn.textContent = isEditing ? '✓ Aggiornato!' : '✓ Salvato!';
-    setTimeout(() => { btn.textContent = isEditing ? 'Aggiorna Trade' : 'Salva Trade'; }, 1800);
+    btn.textContent = isEditing ? '✓ Aggiornato!' : '✓ Salvato! Apri calendario...';
+    setTimeout(() => { btn.textContent = isEditing ? 'Aggiorna Trade' : '📅 Salva Trade + Calendar'; }, 2400);
     await updateBadge();
     await checkAlerts();
+    
+    // 🔔 Scarica il file .ics sia per nuovi trade che per modifiche.
+    // L'UID è sempre lo stesso (r.id), quindi Google Calendar AGGIORNA l'evento esistente
+    // invece di crearne uno nuovo. SEQUENCE incrementa, così Calendar capisce che è una versione più recente.
+    downloadICS(trade);
+    if (isEditing) {
+      showToast('📅 Calendar aggiornato (sostituisce il vecchio evento)');
+    } else {
+      showToast('📅 File calendario scaricato! Aprilo per aggiungerlo a Google Calendar.');
+    }
+    
     // se stavo modificando, esco dalla modalità edit
     if (isEditing) {
       exitEditingMode();
@@ -4204,29 +4218,95 @@ function downloadICS(r) {
   const d = new Date(r.entryDeadline);
   const dStr = d.toISOString().slice(0,10).replace(/-/g,'');
   const dEnd = new Date(d.getTime()+86400000).toISOString().slice(0,10).replace(/-/g,'');
-  const summary = `${r.action} Spread: ${r.leg1} / ${r.leg2}`;
-  const description = [
-    `Azione IB: ${r.action}`, `Tipo: ${r.type}`, `Quantita: ${r.qty}`,
+  
+  // Calcolo P&L proiettato e R/R se possibile
+  let projection = '';
+  if (r.spread !== null && r.targetSpread !== null && r.stopSpread !== null && r.pointPrice && r.qty) {
+    const lossPerPoint = r.qty * r.pointPrice;
+    const targetMove = r.action === 'BUY' ? (r.targetSpread - r.spread) : (r.spread - r.targetSpread);
+    const stopMove = r.action === 'BUY' ? (r.spread - r.stopSpread) : (r.stopSpread - r.spread);
+    const reward = targetMove * lossPerPoint;
+    const risk = stopMove * lossPerPoint;
+    const rr = risk > 0 ? (reward / risk).toFixed(2) : 'N/A';
+    projection = `Guadagno target: +${currencySymbol}${reward.toFixed(0)} | Perdita stop: -${currencySymbol}${Math.abs(risk).toFixed(0)} | R/R: ${rr}`;
+  }
+  
+  // Margine info
+  let marginInfo = '';
+  if (r.spanMargin) {
+    marginInfo = `Margine Iniziale: ${currencySymbol}${(r.spanMargin * r.qty).toFixed(0)}`;
+    if (r.maintenanceMargin) marginInfo += ` | Mantenimento: ${currencySymbol}${(r.maintenanceMargin * r.qty).toFixed(0)}`;
+  }
+  
+  // Costruisco le sigle di IB
+  const buyLeg = r.action === 'BUY' ? r.leg1 : r.leg2;
+  const sellLeg = r.action === 'BUY' ? r.leg2 : r.leg1;
+  const buyPrice = r.action === 'BUY' ? r.p1 : r.p2;
+  const sellPrice = r.action === 'BUY' ? r.p2 : r.p1;
+  
+  // SUMMARY breve con dati chiave
+  const summary = `${r.action} ${r.leg1} / ${r.leg2} @ ${r.spread!==null?r.spread.toFixed(2):'?'}`;
+  
+  // DESCRIPTION ricca con tutto il necessario per agire
+  const lines = [
+    `=== SPREAD HELPER ===`,
+    ``,
+    `🎯 AZIONE SU IB: ${r.action} il combo`,
+    `📊 Tipo: ${r.type}`,
+    `📦 Quantita: ${r.qty} contratto/i`,
+    ``,
+    `=== GAMBE DA COSTRUIRE ===`,
+    `Leg 1 (BUY su IB): ${buyLeg}${buyPrice!==null?` @ ${buyPrice}`:''}`,
+    `Leg 2 (SELL su IB): ${sellLeg}${sellPrice!==null?` @ ${sellPrice}`:''}`,
+    ``,
+    `=== PREZZI ===`,
     `Spread entrata: ${r.spread!==null?r.spread.toFixed(4):'N/A'}`,
-    r.targetSpread!==null?`Target: ${r.targetSpread.toFixed(4)}`:'',
-    r.stopSpread!==null?`Stop: ${r.stopSpread.toFixed(4)}`:'',
-    r.exitDateTarget?`Uscita prevista: ${new Date(r.exitDateTarget).toLocaleDateString('it-IT')}`:'',
-    r.notes?`Note: ${r.notes}`:'',''
-  ].filter(Boolean).join('\\n');
+    r.targetSpread!==null?`✅ Target: ${r.targetSpread.toFixed(4)}`:null,
+    r.stopSpread!==null?`🛑 Stop Loss: ${r.stopSpread.toFixed(4)}`:null,
+    ``,
+    projection ? `=== P&L PROIETTATO ===` : null,
+    projection,
+    ``,
+    marginInfo ? `=== MARGINE ===` : null,
+    marginInfo,
+    ``,
+    r.exitDateTarget?`📅 Uscita prevista: ${new Date(r.exitDateTarget).toLocaleDateString('it-IT', {weekday:'long', day:'2-digit', month:'long', year:'numeric'})}`:null,
+    r.view?`📈 View di mercato: ${r.view}`:null,
+    ``,
+    r.notes?`📝 Note personali: ${r.notes}`:null,
+    ``,
+    `=== PROMEMORIA ===`,
+    `Verifica su SeasonAlgo prima di tradare.`,
+    `Usa Limit order, NON Market.`,
+    `Controlla i dati di mercato reali.`,
+  ].filter(l => l !== null).join('\\n');
+  
   const dtstamp = new Date().toISOString().replace(/[-:.]/g,'').slice(0,15)+'Z';
+  // SEQUENCE serve a Google Calendar per capire che è un AGGIORNAMENTO dell'evento, non un nuovo evento
+  // Uso il numero di volte che è stato modificato, basandomi sul timestamp updated
+  const sequence = r.updated ? Math.floor((r.updated - (r.created || r.updated)) / 1000) : 0;
+  const lastMod = new Date(r.updated || r.created || Date.now()).toISOString().replace(/[-:.]/g,'').slice(0,15)+'Z';
   const ics = [
     'BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//SpreadHelper//IT',
+    'METHOD:PUBLISH',
     'BEGIN:VEVENT',`UID:${r.id}@spreadhelper`,`DTSTAMP:${dtstamp}`,
+    `SEQUENCE:${sequence}`,
+    `LAST-MODIFIED:${lastMod}`,
     `DTSTART;VALUE=DATE:${dStr}`,`DTEND;VALUE=DATE:${dEnd}`,
-    `SUMMARY:${summary}`,`DESCRIPTION:${description}`,
+    `SUMMARY:${summary}`,
+    `DESCRIPTION:${lines}`,
+    `LOCATION:Interactive Brokers TWS`,
+    `CATEGORIES:Trading,SpreadHelper`,
     'BEGIN:VALARM','TRIGGER:-P1D','ACTION:DISPLAY',`DESCRIPTION:Domani: ${summary}`,'END:VALARM',
-    'BEGIN:VALARM','TRIGGER:-PT2H','ACTION:DISPLAY',`DESCRIPTION:Tra 2h: ${summary}`,'END:VALARM',
     'END:VEVENT','END:VCALENDAR'
   ].join('\r\n');
   const blob = new Blob([ics], { type: 'text/calendar' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = `spread_${r.leg1.replace(/\s+/g,'_')}_${r.leg2.replace(/\s+/g,'_')}.ics`;
+  // Nome file con sigle, leggibile
+  const cleanName = (r.leg1 + '_' + r.leg2).replace(/[^A-Za-z0-9_-]/g, '_').replace(/_+/g, '_').slice(0, 60);
+  a.href = url; 
+  a.download = `${r.action}_${cleanName}.ics`;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
