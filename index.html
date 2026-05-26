@@ -1341,58 +1341,6 @@
       </div>
     </div>
 
-    <!-- 2. FRAZIONI CEREALI -->
-    <div class="accordion-item" data-acc="fraction">
-      <button class="accordion-header">
-        <span class="accordion-icon">🧮</span>
-        <div style="flex:1;">
-          <div class="accordion-title">Frazioni Cereali</div>
-          <div class="accordion-sub">Converti tra frazioni ottave e decimali</div>
-        </div>
-        <span class="accordion-arrow">▶</span>
-      </button>
-      <div class="accordion-body">
-        <p style="font-size: 13px; color: var(--text-dim); margin: 12px 0;">
-          Soia, Mais, Grano, Avena quotano in <strong>ottavi di cent per bushel</strong>. Tick minimo = 1/4 cent.
-        </p>
-        <div class="row">
-          <div class="field">
-            <label>Prezzo intero</label>
-            <input type="number" id="fracInteger" inputmode="decimal" step="1" placeholder="es. 649">
-          </div>
-          <div class="field">
-            <label>Frazione</label>
-            <div class="fraction-buttons">
-              <button type="button" data-frac="0" class="active">0</button>
-              <button type="button" data-frac="0.25">1/4</button>
-              <button type="button" data-frac="0.5">1/2</button>
-              <button type="button" data-frac="0.75">3/4</button>
-            </div>
-          </div>
-        </div>
-        <div class="fraction-display">
-          <div style="font-size: 11px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700;">Decimale equivalente</div>
-          <div class="fraction-result" id="fracResult">—</div>
-          <div style="font-size: 12px; color: var(--text-dim);" id="fracValue">Inserisci un prezzo intero</div>
-        </div>
-        <div class="row">
-          <div class="field">
-            <label>Contratti</label>
-            <input type="number" id="fracContracts" value="1" min="1" inputmode="numeric">
-          </div>
-          <div class="field">
-            <label>Bushels/contratto</label>
-            <select id="fracBushels">
-              <option value="5000">5000 (ZS, ZW, ZC standard)</option>
-              <option value="1000">1000 (mini XK, XW, XC)</option>
-              <option value="50">50 (Avena per cent)</option>
-            </select>
-          </div>
-        </div>
-        <div id="fracPnl" style="font-size: 12px; color: var(--text-dim); margin-top: 8px; text-align: center;"></div>
-      </div>
-    </div>
-
     <!-- 3. ROLL COST -->
     <div class="accordion-item" data-acc="roll">
       <button class="accordion-header">
@@ -2657,18 +2605,6 @@ function initToolsTab() {
   // Pre-fill anno corrente per tasse
   document.getElementById('taxYear').value = new Date().getFullYear();
 
-  // Frazioni cereali: pulsanti
-  document.querySelectorAll('.fraction-buttons button').forEach(b => {
-    b.addEventListener('click', () => {
-      document.querySelectorAll('.fraction-buttons button').forEach(x => x.classList.remove('active'));
-      b.classList.add('active');
-      updateFractionResult();
-    });
-  });
-  ['fracInteger', 'fracContracts', 'fracBushels'].forEach(id => {
-    document.getElementById(id).addEventListener('input', updateFractionResult);
-  });
-
   // Render calendario stagionale
   renderSeasonalCalendar();
 }
@@ -2759,40 +2695,7 @@ document.getElementById('calcTaxBtn').addEventListener('click', async () => {
 });
 
 // ============================================================
-// STRUMENTO 2: FRAZIONI CEREALI
-// ============================================================
-function updateFractionResult() {
-  const intVal = parseInt(document.getElementById('fracInteger').value);
-  const active = document.querySelector('.fraction-buttons button.active');
-  const fracVal = active ? parseFloat(active.dataset.frac) : 0;
-  const contracts = parseInt(document.getElementById('fracContracts').value) || 1;
-  const bushels = parseInt(document.getElementById('fracBushels').value) || 5000;
-
-  if (isNaN(intVal)) {
-    document.getElementById('fracResult').textContent = '—';
-    document.getElementById('fracValue').textContent = 'Inserisci un prezzo intero';
-    document.getElementById('fracPnl').textContent = '';
-    return;
-  }
-
-  const decimal = intVal + fracVal;
-  document.getElementById('fracResult').textContent = decimal.toFixed(2);
-
-  // Valore: il prezzo è in centesimi/bushel, quindi $ per contratto = (prezzo/100) * bushels
-  const valuePerContract = (decimal / 100) * bushels;
-  const total = valuePerContract * contracts;
-  document.getElementById('fracValue').textContent = `${intVal} ${fracVal === 0 ? '0' : (fracVal === 0.25 ? '1/4' : fracVal === 0.5 ? '1/2' : '3/4')} = ${decimal} centesimi/bushel`;
-
-  // Valore tick: 1/4 punto su 5000 bushels = $12.50 per contratto
-  const tickValue = 0.25 * bushels / 100;
-  document.getElementById('fracPnl').innerHTML = `
-    1 contratto da ${bushels} bushels @ ${decimal} = <strong style="color:var(--green);">${currencySymbol}${valuePerContract.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</strong> di valore nominale<br>
-    <span style="font-size:11px;">Tick di 1/4 cent = ${currencySymbol}${tickValue.toFixed(2)} per contratto · 1 punto pieno = ${currencySymbol}${(tickValue*4).toFixed(2)}</span>
-  `;
-}
-
-// ============================================================
-// STRUMENTO 3: ROLL COST
+// STRUMENTO 2: ROLL COST
 // ============================================================
 document.getElementById('calcRollBtn').addEventListener('click', () => {
   const cur = parseFloat(document.getElementById('rollCurrentSpread').value);
