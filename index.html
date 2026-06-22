@@ -1673,6 +1673,34 @@
   </section>
 </div>
 
+<!-- Modale apertura trade (per inserire prezzi reali di ingresso quando IBKR fila) -->
+<div class="quick-close-modal" id="quickOpenModal">
+  <div class="quick-close-box">
+    <h3>✅ Apri Trade</h3>
+    <div class="subtitle" id="quickOpenName">—</div>
+    <p style="font-size: 13px; color: var(--text-dim); margin-bottom: 12px;">
+      Quando IBKR esegue l'ordine, i prezzi reali possono differire da quelli pianificati. Inseriscili qui.
+    </p>
+    <div id="quickOpenPlannedInfo" style="background:var(--bg);padding:8px 10px;border-radius:6px;margin-bottom:12px;font-size:12px;color:var(--text-faint);font-family:'JetBrains Mono',monospace;"></div>
+    <div class="row">
+      <div class="field">
+        <label id="quickOpenLeg1Label">Leg 1 ingresso reale</label>
+        <input type="number" id="quickOpenPrice1" step="0.01" inputmode="decimal" placeholder="0.00">
+      </div>
+      <div class="field">
+        <label id="quickOpenLeg2Label">Leg 2 ingresso reale</label>
+        <input type="number" id="quickOpenPrice2" step="0.01" inputmode="decimal" placeholder="0.00">
+      </div>
+    </div>
+    <div id="quickOpenSpreadPreview" style="margin: 10px 0; text-align: center; font-size: 14px;"></div>
+    <div class="btn-row" style="margin-top: 14px;">
+      <button class="btn" id="quickOpenConfirm">✓ Apri con prezzi reali</button>
+      <button class="btn secondary" id="quickOpenSkip">Apri senza prezzi</button>
+    </div>
+    <button class="btn secondary" id="quickOpenCancel" style="margin-top: 8px; width: 100%; opacity: 0.7;">Annulla</button>
+  </div>
+</div>
+
 <!-- Modale chiusura rapida trade (per inserire prezzi uscita al volo) -->
 <div class="quick-close-modal" id="quickCloseModal">
   <div class="quick-close-box">
@@ -2696,7 +2724,9 @@ document.getElementById('calcTaxBtn').addEventListener('click', async () => {
       usedRealCount++;
     } else {
       const exitSpread = t.exitP1 - t.exitP2;
-      const moveSpread = exitSpread - t.spread;
+      // Usa lo spread reale di ingresso se disponibile (più accurato), fallback al pianificato
+      const entrySpread = (t.realSpread !== null && t.realSpread !== undefined) ? t.realSpread : t.spread;
+      const moveSpread = exitSpread - entrySpread;
       pnl = (t.action === 'BUY' ? moveSpread : -moveSpread) * t.qty * t.pointPrice;
     }
     if (pnl >= 0) totalProfit += pnl;
@@ -3783,7 +3813,8 @@ async function renderReminders() {
       let estBadge = '';
       if (hasEstPnl) {
         const exitSpread = r.exitP1 - r.exitP2;
-        const moveSpread = exitSpread - r.spread;
+        const entrySpread = (r.realSpread !== null && r.realSpread !== undefined) ? r.realSpread : r.spread;
+        const moveSpread = exitSpread - entrySpread;
         const estPnl = (r.action === 'BUY' ? moveSpread : -moveSpread) * r.qty * r.pointPrice;
         const diff = pnl - estPnl;
         if (Math.abs(diff) >= 1) {
@@ -3793,7 +3824,8 @@ async function renderReminders() {
       pnlBadge = `<div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;color:${pnl>=0?'var(--green)':'var(--red)'};margin-top:3px;">💰 P&L reale: ${pnl>=0?'+':''}${currencySymbol}${pnl.toFixed(2)}${estBadge}</div>`;
     } else if (hasEstPnl) {
       const exitSpread = r.exitP1 - r.exitP2;
-      const moveSpread = exitSpread - r.spread;
+      const entrySpread = (r.realSpread !== null && r.realSpread !== undefined) ? r.realSpread : r.spread;
+      const moveSpread = exitSpread - entrySpread;
       const pnl = (r.action === 'BUY' ? moveSpread : -moveSpread) * r.qty * r.pointPrice;
       pnlBadge = `<div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;color:${pnl>=0?'var(--green)':'var(--red)'};margin-top:3px;">P&L stim: ${pnl>=0?'+':''}${currencySymbol}${pnl.toFixed(0)} <span style="color:var(--text-faint);font-size:10px;font-weight:400;">· tocca per inserire reale</span></div>`;
     } else if (r.status === 'closed') {
@@ -3818,12 +3850,28 @@ async function renderReminders() {
       const tot = r.spanMargin * r.qty;
       marginInfo = `<div style="font-size:11px;color:var(--text-faint);font-family:'JetBrains Mono',monospace;margin-top:3px;">Margine: ${currencySymbol}${tot.toFixed(0)}</div>`;
     }
+    // Per trade aperti: pulsante per modificare i prezzi reali di ingresso
+    let editEntryBtn = '';
+    if (status === 'open') {
+      const hasRealEntry = r.realSpread !== null && r.realSpread !== undefined;
+      editEntryBtn = `<button class="status-toggle to-open" style="color:var(--blue);border-color:var(--blue);background:var(--blue-glow);" data-action="editOpenEntry" data-id="${r.id}" title="Modifica prezzi reali di ingresso">${hasRealEntry ? '✏️ Entry' : '+ Entry'}</button>`;
+    }
+    // Meta line: mostra spread reale se disponibile, altrimenti pianificato
+    const hasRealEntry = r.realSpread !== null && r.realSpread !== undefined;
+    let metaLine;
+    if (hasRealEntry) {
+      const slippage = r.realSpread - r.spread;
+      const slipSign = slippage >= 0 ? '+' : '';
+      metaLine = `${r.type} · ${r.qty}x · 💰 reale @ ${r.realSpread.toFixed(4)} <span style="color:var(--text-faint);font-size:11px;">(pianif. ${r.spread!==null?r.spread.toFixed(4):'—'}${slippage !== 0 ? ` · slip ${slipSign}${slippage.toFixed(4)}` : ''})</span>`;
+    } else {
+      metaLine = `${r.type} · ${r.qty}x · entrata @ ${r.spread!==null?r.spread.toFixed(4):'—'}${status === 'open' ? ' <span style="color:var(--amber);font-size:11px;">⚠ no prezzi reali</span>' : ''}`;
+    }
     return `
       <div class="reminder-item ${urgency}">
         <div class="reminder-head" style="cursor:pointer;" data-action="view" data-id="${r.id}">
           <div style="min-width:0;flex:1;">
-            <div class="reminder-name">${r.leg1} / ${r.leg2} ${statusBadge}${quickToggle}${editPnlBtn}</div>
-            <div class="reminder-meta">${r.type} · ${r.qty}x · entrata @ ${r.spread!==null?r.spread.toFixed(4):'—'}</div>
+            <div class="reminder-name">${r.leg1} / ${r.leg2} ${statusBadge}${quickToggle}${editEntryBtn}${editPnlBtn}</div>
+            <div class="reminder-meta">${metaLine}</div>
             ${marginInfo}
             ${pnlBadge}
           </div>
@@ -3871,19 +3919,28 @@ async function handleAction(action, id, items, btnEl, e) {
     // Riapre la modale di chiusura su un trade già chiuso per modificare/aggiungere il P&L
     openQuickCloseModal(r);
   }
+  else if (action === 'editOpenEntry') {
+    // Riapre la modale di apertura su un trade già aperto per modificare prezzi reali ingresso
+    openQuickOpenModal(r);
+  }
 }
 
 // ============================================================
 // QUICK CHANGE STATUS (un click cambia stato rapidamente)
 // ============================================================
 async function quickChangeStatus(trade, newStatus) {
-  // Caso speciale: passaggio a "closed" → chiedi se vuoi inserire prezzi uscita
+  // Caso speciale 1: passaggio a "open" da "planned" → chiedi prezzi reali ingresso
+  if (newStatus === 'open' && (trade.status === 'planned' || !trade.status)) {
+    openQuickOpenModal(trade);
+    return;
+  }
+  // Caso speciale 2: passaggio a "closed" → chiedi prezzi uscita / P&L reale
   if (newStatus === 'closed' && trade.status === 'open') {
     openQuickCloseModal(trade);
     return;
   }
   
-  // Altri casi: cambia stato direttamente, senza conferma (è veloce)
+  // Altri casi (es. closed → planned per riaprire): cambia stato direttamente
   trade.status = newStatus;
   trade.updated = Date.now();
   try {
@@ -3891,11 +3948,127 @@ async function quickChangeStatus(trade, newStatus) {
     await renderReminders();
     await updateBadge();
     await checkAlerts();
-    // Piccolo toast di conferma
     showToast(newStatus === 'open' ? '✅ Trade aperto' : newStatus === 'closed' ? '📁 Trade chiuso' : '📋 Trade rimesso in pianificato');
   } catch(e) {
     alert('Errore: ' + e.message);
   }
+}
+
+// ============================================================
+// QUICK OPEN MODAL (apertura con prezzi reali di ingresso da IBKR)
+// ============================================================
+let quickOpenTrade = null;
+
+function openQuickOpenModal(trade) {
+  quickOpenTrade = trade;
+  const modal = document.getElementById('quickOpenModal');
+  document.getElementById('quickOpenName').textContent = `${trade.leg1} / ${trade.leg2}`;
+  document.getElementById('quickOpenLeg1Label').textContent = `${trade.leg1.slice(0, 20)} ingresso reale`;
+  document.getElementById('quickOpenLeg2Label').textContent = `${trade.leg2.slice(0, 20)} ingresso reale`;
+  // Pre-fill con prezzi reali se già esistono (caso ri-apertura), altrimenti vuoto
+  document.getElementById('quickOpenPrice1').value = trade.realEntryP1 != null ? trade.realEntryP1 : '';
+  document.getElementById('quickOpenPrice2').value = trade.realEntryP2 != null ? trade.realEntryP2 : '';
+  // Mostra prezzi pianificati come riferimento
+  const plannedSpread = trade.spread !== null && trade.spread !== undefined ? trade.spread.toFixed(4) : '—';
+  const p1 = trade.entryP1 !== null && trade.entryP1 !== undefined ? trade.entryP1.toFixed(4) : '—';
+  const p2 = trade.entryP2 !== null && trade.entryP2 !== undefined ? trade.entryP2.toFixed(4) : '—';
+  document.getElementById('quickOpenPlannedInfo').innerHTML = `
+    <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.1em;font-weight:700;margin-bottom:4px;">📋 Prezzi pianificati (riferimento)</div>
+    L1: ${p1} · L2: ${p2} · Spread: ${plannedSpread}
+  `;
+  document.getElementById('quickOpenSpreadPreview').innerHTML = '';
+  modal.classList.add('show');
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => document.getElementById('quickOpenPrice1').focus(), 100);
+  previewQuickOpenSpread();
+}
+
+function closeQuickOpenModal() {
+  document.getElementById('quickOpenModal').classList.remove('show');
+  document.body.style.overflow = '';
+  quickOpenTrade = null;
+}
+
+function previewQuickOpenSpread() {
+  if (!quickOpenTrade) return;
+  const t = quickOpenTrade;
+  const e1 = parseFloat(document.getElementById('quickOpenPrice1').value);
+  const e2 = parseFloat(document.getElementById('quickOpenPrice2').value);
+  const el = document.getElementById('quickOpenSpreadPreview');
+  if (isNaN(e1) || isNaN(e2)) {
+    el.innerHTML = '';
+    return;
+  }
+  const realSpread = e1 - e2;
+  const plannedSpread = t.spread;
+  let diffBlock = '';
+  if (plannedSpread !== null && plannedSpread !== undefined) {
+    const diff = realSpread - plannedSpread;
+    const diffPoints = diff;
+    const diffMoney = diff * t.qty * t.pointPrice;
+    // Slippage: per BUY, spread reale più alto è sfavorevole; per SELL il contrario
+    const isFavorable = t.action === 'BUY' ? diff < 0 : diff > 0;
+    const slipColor = Math.abs(diffMoney) < 1 ? 'var(--text-faint)' : (isFavorable ? 'var(--green)' : 'var(--red)');
+    const slipLabel = isFavorable ? 'favorevole' : 'sfavorevole';
+    diffBlock = `<div style="font-size:11px;color:${slipColor};margin-top:6px;">Δ vs pianificato: ${diff >= 0 ? '+' : ''}${diff.toFixed(4)} <span style="color:var(--text-faint);">(slippage ${slipLabel}: ${diffMoney >= 0 ? '+' : ''}${currencySymbol}${diffMoney.toFixed(2)})</span></div>`;
+  }
+  el.innerHTML = `
+    <div style="padding:10px;background:var(--bg);border:1px solid var(--blue);border-radius:8px;">
+      <div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.1em;font-weight:700;">Spread reale di ingresso</div>
+      <div style="font-size:24px;font-weight:800;color:var(--blue);font-family:'JetBrains Mono',monospace;margin-top:4px;">
+        ${realSpread.toFixed(4)}
+      </div>
+      ${diffBlock}
+    </div>
+  `;
+}
+
+// Inizializzo handler quick open una volta sola
+let quickOpenHandlersAttached = false;
+function attachQuickOpenHandlers() {
+  if (quickOpenHandlersAttached) return;
+  quickOpenHandlersAttached = true;
+  document.getElementById('quickOpenPrice1').addEventListener('input', previewQuickOpenSpread);
+  document.getElementById('quickOpenPrice2').addEventListener('input', previewQuickOpenSpread);
+  document.getElementById('quickOpenCancel').addEventListener('click', closeQuickOpenModal);
+  document.getElementById('quickOpenSkip').addEventListener('click', async () => {
+    if (!quickOpenTrade) return;
+    quickOpenTrade.status = 'open';
+    quickOpenTrade.updated = Date.now();
+    await dbPut(quickOpenTrade);
+    closeQuickOpenModal();
+    await renderReminders();
+    await updateBadge();
+    showToast('✅ Trade aperto (senza prezzi reali)');
+  });
+  document.getElementById('quickOpenConfirm').addEventListener('click', async () => {
+    if (!quickOpenTrade) return;
+    const e1 = parseFloat(document.getElementById('quickOpenPrice1').value);
+    const e2 = parseFloat(document.getElementById('quickOpenPrice2').value);
+    if (isNaN(e1) || isNaN(e2)) {
+      alert('Inserisci entrambi i prezzi, oppure usa "Apri senza prezzi"');
+      return;
+    }
+    const t = quickOpenTrade;
+    t.status = 'open';
+    t.realEntryP1 = e1;
+    t.realEntryP2 = e2;
+    t.realSpread = e1 - e2;
+    t.updated = Date.now();
+    await dbPut(t);
+    closeQuickOpenModal();
+    await renderReminders();
+    await updateBadge();
+    const slippage = t.realSpread - t.spread;
+    const slipMoney = slippage * t.qty * t.pointPrice;
+    const isFavorable = t.action === 'BUY' ? slippage < 0 : slippage > 0;
+    const sign = slipMoney >= 0 ? '+' : '';
+    showToast(`✅ Aperto · slippage ${isFavorable ? '😊' : '😬'} ${sign}${currencySymbol}${slipMoney.toFixed(2)}`);
+  });
+  // Tap fuori dalla box → chiudi
+  document.getElementById('quickOpenModal').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('quickOpenModal')) closeQuickOpenModal();
+  });
 }
 
 // Toast di conferma in basso
@@ -3964,16 +4137,19 @@ function previewQuickClosePnl() {
   let estBlock = '';
   if (hasPrices) {
     const exitSpread = e1 - e2;
-    const moveSpread = exitSpread - t.spread;
+    // Usa lo spread reale di ingresso se disponibile, altrimenti quello pianificato
+    const entrySpread = (t.realSpread !== null && t.realSpread !== undefined) ? t.realSpread : t.spread;
+    const entrySource = (t.realSpread !== null && t.realSpread !== undefined) ? 'reale' : 'pianificato';
+    const moveSpread = exitSpread - entrySpread;
     estPnl = (t.action === 'BUY' ? moveSpread : -moveSpread) * t.qty * t.pointPrice;
     const color = estPnl >= 0 ? 'var(--green)' : 'var(--red)';
     estBlock = `
       <div style="padding:10px;background:var(--bg);border:1px solid ${color};border-radius:8px;">
-        <div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.1em;font-weight:700;">P&L Stimato (da prezzi)</div>
+        <div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.1em;font-weight:700;">P&L Stimato (da prezzi · entry ${entrySource})</div>
         <div style="font-size:22px;font-weight:800;color:${color};font-family:'JetBrains Mono',monospace;margin-top:4px;">
           ${estPnl >= 0 ? '+' : ''}${currencySymbol}${estPnl.toFixed(2)}
         </div>
-        <div style="font-size:11px;color:var(--text-faint);margin-top:2px;">Spread uscita: ${exitSpread.toFixed(4)} (mov. ${moveSpread >= 0 ? '+' : ''}${moveSpread.toFixed(4)})</div>
+        <div style="font-size:11px;color:var(--text-faint);margin-top:2px;">Entry: ${entrySpread.toFixed(4)} → Exit: ${exitSpread.toFixed(4)} (mov. ${moveSpread >= 0 ? '+' : ''}${moveSpread.toFixed(4)})</div>
       </div>`;
   }
 
@@ -4063,7 +4239,9 @@ function attachQuickCloseHandlers() {
       t.exitP1 = e1;
       t.exitP2 = e2;
       t.exitSpread = e1 - e2;
-      const moveSpread = t.exitSpread - t.spread;
+      // Usa lo spread reale di ingresso se disponibile (più accurato), fallback al pianificato
+      const entrySpread = (t.realSpread !== null && t.realSpread !== undefined) ? t.realSpread : t.spread;
+      const moveSpread = t.exitSpread - entrySpread;
       t.pnl = (t.action === 'BUY' ? moveSpread : -moveSpread) * t.qty * t.pointPrice;
     }
     if (hasReal) {
@@ -4535,6 +4713,7 @@ async function requestPersistent() {
   await loadCurrency();
   await loadGlobalCapital();
   attachQuickCloseHandlers();
+  attachQuickOpenHandlers();
   attachTradeFilters();
   if ('Notification' in window) { notifPermission = Notification.permission; updateNotifStatus(); }
   await updateBadge();
