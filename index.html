@@ -117,6 +117,30 @@
 
   .panel { display: none; }
   .panel.active { display: block; animation: fadeIn 0.3s ease; }
+
+  /* Filtri trade (sub-tabs all'interno della tab Trade) */
+  .trade-filters {
+    display: flex; gap: 6px; margin-bottom: 14px; overflow-x: auto;
+    padding-bottom: 4px; -webkit-overflow-scrolling: touch;
+  }
+  .trade-filter {
+    background: var(--bg-elev); border: 1px solid var(--border);
+    color: var(--text-dim); padding: 8px 14px; border-radius: 20px;
+    font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;
+    transition: all 0.15s; font-family: 'Inter', sans-serif; flex-shrink: 0;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .trade-filter:hover { border-color: var(--border-bright); }
+  .trade-filter.active {
+    background: var(--green-glow); color: var(--green);
+    border-color: var(--green);
+  }
+  .trade-filter .count {
+    background: var(--bg); color: inherit; padding: 1px 7px;
+    border-radius: 10px; font-size: 10px; font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .trade-filter.active .count { background: var(--bg-card); }
   @keyframes fadeIn { from{opacity:0;transform:translateY(4px);} to{opacity:1;transform:translateY(0);} }
 
   .card {
@@ -1282,6 +1306,12 @@
     <div id="riskDashboardContainer"></div>
     <div class="card">
       <div class="card-title">I tuoi trade salvati</div>
+      <div class="trade-filters" id="tradeFilters">
+        <button class="trade-filter active" data-filter="all">Tutti <span class="count" id="cntAll">0</span></button>
+        <button class="trade-filter" data-filter="planned">📋 Pianificati <span class="count" id="cntPlanned">0</span></button>
+        <button class="trade-filter" data-filter="open">✅ Aperti <span class="count" id="cntOpen">0</span></button>
+        <button class="trade-filter" data-filter="closed">📁 Chiusi <span class="count" id="cntClosed">0</span></button>
+      </div>
       <div id="remindersList"><div class="empty">Caricamento...</div></div>
     </div>
   </section>
@@ -1662,6 +1692,18 @@
       </div>
     </div>
     <div id="quickClosePnlPreview" style="margin: 10px 0; text-align: center; font-size: 14px;"></div>
+    <div style="border-top: 1px dashed var(--border); padding-top: 12px; margin-top: 8px;">
+      <div class="field">
+        <label style="display:flex;align-items:center;gap:6px;">
+          💰 P&L reale da IBKR (opzionale)
+          <span style="font-size:10px;color:var(--text-faint);font-weight:400;">— include commissioni & fees</span>
+        </label>
+        <input type="number" id="quickCloseRealPnl" step="0.01" inputmode="decimal" placeholder="es. 245.50 oppure -120.30">
+        <div class="hint" style="font-size:11px;color:var(--text-faint);margin-top:4px;line-height:1.4;">
+          Se inserisci il P&L netto comunicato da Interactive Brokers, sarà salvato come valore <strong>reale</strong> (oltre a quello stimato dai prezzi).
+        </div>
+      </div>
+    </div>
     <div class="btn-row" style="margin-top: 14px;">
       <button class="btn" id="quickCloseConfirm">✓ Chiudi Trade</button>
       <button class="btn secondary" id="quickCloseSkip">Chiudi senza prezzi</button>
@@ -2628,26 +2670,38 @@ document.getElementById('calcTaxBtn').addEventListener('click', async () => {
   const allTrades = await loadTrades();
   const closedTrades = allTrades.filter(t => {
     if (t.status !== 'closed') return false;
-    if (t.exitP1 === null || t.exitP1 === undefined) return false;
+    // Considera il trade valido per il calcolo se ha o i prezzi di uscita o un P&L reale
+    const hasPrices = t.exitP1 !== null && t.exitP1 !== undefined;
+    const hasReal = t.pnlReal !== null && t.pnlReal !== undefined;
+    if (!hasPrices && !hasReal) return false;
     // Usa updated o created come data riferimento di chiusura
     const refDate = t.updated || t.created || t.ts;
     return new Date(refDate).getFullYear() === year;
   });
 
   if (closedTrades.length === 0) {
-    out.innerHTML = `<div class="callout" style="margin-top:12px;"><strong>Nessun trade chiuso nel ${year}</strong><br>I trade devono avere stato "Chiuso" e prezzi di uscita inseriti per essere conteggiati.</div>`;
+    out.innerHTML = `<div class="callout" style="margin-top:12px;"><strong>Nessun trade chiuso nel ${year}</strong><br>I trade devono avere stato "Chiuso" e P&L (prezzi di uscita o P&L reale IBKR) per essere conteggiati.</div>`;
     return;
   }
 
-  // Calcola P&L per ogni trade
+  // Calcola P&L per ogni trade - PRIORITÀ al P&L reale IBKR se presente
   let totalProfit = 0, totalLoss = 0;
+  let usedRealCount = 0;
   const rows = closedTrades.map(t => {
-    const exitSpread = t.exitP1 - t.exitP2;
-    const moveSpread = exitSpread - t.spread;
-    const pnl = (t.action === 'BUY' ? moveSpread : -moveSpread) * t.qty * t.pointPrice;
+    let pnl;
+    let source = 'stimato';
+    if (t.pnlReal !== null && t.pnlReal !== undefined) {
+      pnl = t.pnlReal;
+      source = 'reale';
+      usedRealCount++;
+    } else {
+      const exitSpread = t.exitP1 - t.exitP2;
+      const moveSpread = exitSpread - t.spread;
+      pnl = (t.action === 'BUY' ? moveSpread : -moveSpread) * t.qty * t.pointPrice;
+    }
     if (pnl >= 0) totalProfit += pnl;
     else totalLoss += pnl;
-    return { ...t, pnl };
+    return { ...t, pnl, pnlSource: source };
   });
 
   const grossPnl = totalProfit + totalLoss; // somma algebrica
@@ -2664,7 +2718,7 @@ document.getElementById('calcTaxBtn').addEventListener('click', async () => {
 
   const tableRows = rows.slice(0, 20).map(t => `
     <tr>
-      <td>${t.leg1.slice(0,15)}/${t.leg2.slice(0,15)}</td>
+      <td>${t.leg1.slice(0,15)}/${t.leg2.slice(0,15)} ${t.pnlSource === 'reale' ? '<span style="color:var(--green);font-size:10px;">💰</span>' : '<span style="color:var(--text-faint);font-size:10px;">~</span>'}</td>
       <td class="num ${t.pnl >= 0 ? 'pos' : 'neg'}">${t.pnl >= 0 ? '+' : ''}${currencySymbol}${t.pnl.toFixed(0)}</td>
     </tr>
   `).join('');
@@ -2673,6 +2727,7 @@ document.getElementById('calcTaxBtn').addEventListener('click', async () => {
     <div class="pnl-panel" style="margin-top: 14px;">
       <div style="font-size: 13px; font-weight: 700; margin-bottom: 10px;">📋 Riepilogo Fiscale ${year}</div>
       <div class="pnl-row"><span class="label">Trade chiusi nell'anno</span><span class="val">${closedTrades.length}</span></div>
+      <div class="pnl-row"><span class="label" style="font-size:11px;color:var(--text-faint);">↳ con P&L reale IBKR / stimato</span><span class="val" style="font-size:11px;color:var(--text-faint);">${usedRealCount} 💰 / ${closedTrades.length - usedRealCount} ~</span></div>
       <div class="pnl-row"><span class="label">Plusvalenze totali</span><span class="val pos">+${currencySymbol}${totalProfit.toFixed(2)}</span></div>
       <div class="pnl-row"><span class="label">Minusvalenze totali</span><span class="val neg">${currencySymbol}${totalLoss.toFixed(2)}</span></div>
       <div class="pnl-row"><span class="label">P&L lordo</span><span class="val ${grossPnl>=0?'pos':'neg'}">${grossPnl>=0?'+':''}${currencySymbol}${grossPnl.toFixed(2)}</span></div>
@@ -3662,15 +3717,54 @@ async function renderRiskDashboard() {
   `;
 }
 
+// Filtro attivo per la lista trade
+let activeTradeFilter = 'all';
+
 async function renderReminders() {
   await renderRiskDashboard();
   const list = document.getElementById('remindersList');
   const items = await loadTrades();
+
+  // Aggiorna contatori filtri
+  const counts = {
+    all: items.length,
+    planned: items.filter(t => (t.status || 'planned') === 'planned').length,
+    open: items.filter(t => t.status === 'open').length,
+    closed: items.filter(t => t.status === 'closed').length
+  };
+  const cntAllEl = document.getElementById('cntAll');
+  const cntPlEl = document.getElementById('cntPlanned');
+  const cntOpEl = document.getElementById('cntOpen');
+  const cntClEl = document.getElementById('cntClosed');
+  if (cntAllEl) cntAllEl.textContent = counts.all;
+  if (cntPlEl) cntPlEl.textContent = counts.planned;
+  if (cntOpEl) cntOpEl.textContent = counts.open;
+  if (cntClEl) cntClEl.textContent = counts.closed;
+
   if (items.length === 0) {
     list.innerHTML = '<div class="empty">Nessun trade salvato.<br>Crea il tuo primo dal tab Calcola.</div>';
     return;
   }
-  list.innerHTML = items.map(r => {
+
+  // Applica filtro
+  let filtered = items;
+  if (activeTradeFilter === 'planned') filtered = items.filter(t => (t.status || 'planned') === 'planned');
+  else if (activeTradeFilter === 'open') filtered = items.filter(t => t.status === 'open');
+  else if (activeTradeFilter === 'closed') filtered = items.filter(t => t.status === 'closed');
+
+  if (filtered.length === 0) {
+    const labels = { planned: 'pianificati', open: 'aperti', closed: 'chiusi' };
+    list.innerHTML = `<div class="empty">Nessun trade ${labels[activeTradeFilter] || ''}.<br>Cambia filtro per vedere gli altri.</div>`;
+    return;
+  }
+
+  // Ordina: chiusi ordinati per data di chiusura desc (più recenti prima),
+  // altri per deadline asc
+  if (activeTradeFilter === 'closed') {
+    filtered = filtered.slice().sort((a, b) => (b.updated || 0) - (a.updated || 0));
+  }
+
+  list.innerHTML = filtered.map(r => {
     const days = getDaysLeft(r.entryDeadline);
     const urgency = getUrgency(days);
     let label, text;
@@ -3680,13 +3774,30 @@ async function renderReminders() {
     else { label = `${days}`; text = `${days} giorni`; }
     const deadlineFmt = new Date(r.entryDeadline).toLocaleDateString('it-IT', {day:'2-digit',month:'short',year:'numeric'});
     const exitFmt = r.exitDateTarget ? new Date(r.exitDateTarget).toLocaleDateString('it-IT',{day:'2-digit',month:'short'}) : null;
-    const hasRealPnl = r.exitP1 !== undefined && r.exitP1 !== null;
+    const hasEstPnl = r.exitP1 !== undefined && r.exitP1 !== null;
+    const hasRealPnl = r.pnlReal !== undefined && r.pnlReal !== null;
     let pnlBadge = '';
     if (hasRealPnl) {
+      // Mostra P&L reale (priorità)
+      const pnl = r.pnlReal;
+      let estBadge = '';
+      if (hasEstPnl) {
+        const exitSpread = r.exitP1 - r.exitP2;
+        const moveSpread = exitSpread - r.spread;
+        const estPnl = (r.action === 'BUY' ? moveSpread : -moveSpread) * r.qty * r.pointPrice;
+        const diff = pnl - estPnl;
+        if (Math.abs(diff) >= 1) {
+          estBadge = `<span style="font-size:10px;color:var(--text-faint);margin-left:6px;">stim: ${estPnl>=0?'+':''}${currencySymbol}${estPnl.toFixed(0)} (Δ${diff>=0?'+':''}${diff.toFixed(0)})</span>`;
+        }
+      }
+      pnlBadge = `<div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;color:${pnl>=0?'var(--green)':'var(--red)'};margin-top:3px;">💰 P&L reale: ${pnl>=0?'+':''}${currencySymbol}${pnl.toFixed(2)}${estBadge}</div>`;
+    } else if (hasEstPnl) {
       const exitSpread = r.exitP1 - r.exitP2;
       const moveSpread = exitSpread - r.spread;
       const pnl = (r.action === 'BUY' ? moveSpread : -moveSpread) * r.qty * r.pointPrice;
-      pnlBadge = `<div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;color:${pnl>=0?'var(--green)':'var(--red)'};margin-top:3px;">P&L: ${pnl>=0?'+':''}${currencySymbol}${pnl.toFixed(0)}</div>`;
+      pnlBadge = `<div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;color:${pnl>=0?'var(--green)':'var(--red)'};margin-top:3px;">P&L stim: ${pnl>=0?'+':''}${currencySymbol}${pnl.toFixed(0)} <span style="color:var(--text-faint);font-size:10px;font-weight:400;">· tocca per inserire reale</span></div>`;
+    } else if (r.status === 'closed') {
+      pnlBadge = `<div style="font-size:11px;color:var(--amber);margin-top:3px;">⚠ P&L non inserito · tocca per aggiungerlo</div>`;
     }
     const status = r.status || 'planned';
     const statusLabels = { planned: '📋 Pianif.', open: '✅ Aperto', closed: '📁 Chiuso' };
@@ -3696,6 +3807,11 @@ async function renderReminders() {
     const nextLabels = { open: '→ Apri', closed: '→ Chiudi', planned: '↺ Riapri' };
     const toggleClass = `to-${nextStatus}`;
     const quickToggle = `<button class="status-toggle ${toggleClass}" data-action="quickToggle" data-id="${r.id}" data-next="${nextStatus}" title="Cambia stato rapidamente">${nextLabels[nextStatus]}</button>`;
+    // Per trade chiusi: bottone "Modifica P&L" diretto
+    let editPnlBtn = '';
+    if (status === 'closed') {
+      editPnlBtn = `<button class="status-toggle to-open" style="color:var(--amber);border-color:var(--amber);background:var(--amber-glow);" data-action="editClosedPnl" data-id="${r.id}" title="Modifica P&L">${hasRealPnl ? '✏️ P&L' : '+ P&L'}</button>`;
+    }
     // Mostra margine impegnato se ha spanMargin
     let marginInfo = '';
     if (r.spanMargin && status === 'open') {
@@ -3706,7 +3822,7 @@ async function renderReminders() {
       <div class="reminder-item ${urgency}">
         <div class="reminder-head" style="cursor:pointer;" data-action="view" data-id="${r.id}">
           <div style="min-width:0;flex:1;">
-            <div class="reminder-name">${r.leg1} / ${r.leg2} ${statusBadge}${quickToggle}</div>
+            <div class="reminder-name">${r.leg1} / ${r.leg2} ${statusBadge}${quickToggle}${editPnlBtn}</div>
             <div class="reminder-meta">${r.type} · ${r.qty}x · entrata @ ${r.spread!==null?r.spread.toFixed(4):'—'}</div>
             ${marginInfo}
             ${pnlBadge}
@@ -3750,6 +3866,10 @@ async function handleAction(action, id, items, btnEl, e) {
   else if (action === 'quickToggle') {
     const next = btnEl.dataset.next;
     await quickChangeStatus(r, next);
+  }
+  else if (action === 'editClosedPnl') {
+    // Riapre la modale di chiusura su un trade già chiuso per modificare/aggiungere il P&L
+    openQuickCloseModal(r);
   }
 }
 
@@ -3804,12 +3924,14 @@ function openQuickCloseModal(trade) {
   document.getElementById('quickCloseName').textContent = `${trade.leg1} / ${trade.leg2}`;
   document.getElementById('quickCloseLeg1Label').textContent = `${trade.leg1.slice(0, 20)} uscita`;
   document.getElementById('quickCloseLeg2Label').textContent = `${trade.leg2.slice(0, 20)} uscita`;
-  document.getElementById('quickClosePrice1').value = '';
-  document.getElementById('quickClosePrice2').value = '';
+  document.getElementById('quickClosePrice1').value = trade.exitP1 != null ? trade.exitP1 : '';
+  document.getElementById('quickClosePrice2').value = trade.exitP2 != null ? trade.exitP2 : '';
+  document.getElementById('quickCloseRealPnl').value = trade.pnlReal != null ? trade.pnlReal : '';
   document.getElementById('quickClosePnlPreview').innerHTML = '';
   modal.classList.add('show');
   document.body.style.overflow = 'hidden';
   setTimeout(() => document.getElementById('quickClosePrice1').focus(), 100);
+  previewQuickClosePnl();
 }
 
 function closeQuickCloseModal() {
@@ -3828,67 +3950,135 @@ function previewQuickClosePnl() {
   const t = quickCloseTrade;
   const e1 = parseFloat(document.getElementById('quickClosePrice1').value);
   const e2 = parseFloat(document.getElementById('quickClosePrice2').value);
+  const realPnl = parseFloat(document.getElementById('quickCloseRealPnl').value);
   const el = document.getElementById('quickClosePnlPreview');
-  if (isNaN(e1) || isNaN(e2)) {
+  const hasPrices = !isNaN(e1) && !isNaN(e2);
+  const hasReal = !isNaN(realPnl);
+
+  if (!hasPrices && !hasReal) {
     el.innerHTML = '';
     return;
   }
-  const exitSpread = e1 - e2;
-  const moveSpread = exitSpread - t.spread;
-  const pnl = (t.action === 'BUY' ? moveSpread : -moveSpread) * t.qty * t.pointPrice;
-  const cls = pnl >= 0 ? 'pos' : 'neg';
-  const color = pnl >= 0 ? 'var(--green)' : 'var(--red)';
-  el.innerHTML = `
-    <div style="padding:10px;background:var(--bg);border:1px solid ${color};border-radius:8px;">
-      <div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.1em;font-weight:700;">P&L Stimato</div>
-      <div style="font-size:24px;font-weight:800;color:${color};font-family:'JetBrains Mono',monospace;margin-top:4px;">
-        ${pnl >= 0 ? '+' : ''}${currencySymbol}${pnl.toFixed(2)}
-      </div>
-      <div style="font-size:11px;color:var(--text-faint);margin-top:2px;">Spread uscita: ${exitSpread.toFixed(4)} (mov. ${moveSpread >= 0 ? '+' : ''}${moveSpread.toFixed(4)})</div>
-    </div>
-  `;
+
+  let estPnl = null;
+  let estBlock = '';
+  if (hasPrices) {
+    const exitSpread = e1 - e2;
+    const moveSpread = exitSpread - t.spread;
+    estPnl = (t.action === 'BUY' ? moveSpread : -moveSpread) * t.qty * t.pointPrice;
+    const color = estPnl >= 0 ? 'var(--green)' : 'var(--red)';
+    estBlock = `
+      <div style="padding:10px;background:var(--bg);border:1px solid ${color};border-radius:8px;">
+        <div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.1em;font-weight:700;">P&L Stimato (da prezzi)</div>
+        <div style="font-size:22px;font-weight:800;color:${color};font-family:'JetBrains Mono',monospace;margin-top:4px;">
+          ${estPnl >= 0 ? '+' : ''}${currencySymbol}${estPnl.toFixed(2)}
+        </div>
+        <div style="font-size:11px;color:var(--text-faint);margin-top:2px;">Spread uscita: ${exitSpread.toFixed(4)} (mov. ${moveSpread >= 0 ? '+' : ''}${moveSpread.toFixed(4)})</div>
+      </div>`;
+  }
+
+  let realBlock = '';
+  if (hasReal) {
+    const colorR = realPnl >= 0 ? 'var(--green)' : 'var(--red)';
+    let diffBlock = '';
+    if (estPnl !== null) {
+      const diff = realPnl - estPnl;
+      const diffColor = Math.abs(diff) < 5 ? 'var(--text-faint)' : 'var(--amber)';
+      diffBlock = `<div style="font-size:11px;color:${diffColor};margin-top:4px;">Δ vs stima: ${diff >= 0 ? '+' : ''}${currencySymbol}${diff.toFixed(2)} <span style="color:var(--text-faint);">(commissioni/slippage)</span></div>`;
+    }
+    realBlock = `
+      <div style="padding:10px;background:var(--bg);border:1px solid ${colorR};border-radius:8px;margin-top:8px;">
+        <div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.1em;font-weight:700;">💰 P&L Reale (IBKR)</div>
+        <div style="font-size:22px;font-weight:800;color:${colorR};font-family:'JetBrains Mono',monospace;margin-top:4px;">
+          ${realPnl >= 0 ? '+' : ''}${currencySymbol}${realPnl.toFixed(2)}
+        </div>
+        ${diffBlock}
+      </div>`;
+  }
+
+  el.innerHTML = estBlock + realBlock;
 }
 
 // Inizializzo handler una volta sola
 let quickCloseHandlersAttached = false;
+
+// Handler per i pulsanti filtro nella tab Trade
+let tradeFiltersAttached = false;
+function attachTradeFilters() {
+  if (tradeFiltersAttached) return;
+  tradeFiltersAttached = true;
+  const cont = document.getElementById('tradeFilters');
+  if (!cont) return;
+  cont.querySelectorAll('.trade-filter').forEach(btn => {
+    btn.addEventListener('click', () => {
+      cont.querySelectorAll('.trade-filter').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      activeTradeFilter = btn.dataset.filter;
+      renderReminders();
+    });
+  });
+}
+
 function attachQuickCloseHandlers() {
   if (quickCloseHandlersAttached) return;
   quickCloseHandlersAttached = true;
   document.getElementById('quickClosePrice1').addEventListener('input', previewQuickClosePnl);
   document.getElementById('quickClosePrice2').addEventListener('input', previewQuickClosePnl);
+  document.getElementById('quickCloseRealPnl').addEventListener('input', previewQuickClosePnl);
   document.getElementById('quickCloseCancel').addEventListener('click', closeQuickCloseModal);
   document.getElementById('quickCloseSkip').addEventListener('click', async () => {
     if (!quickCloseTrade) return;
+    // Anche con "skip prezzi", salva il P&L reale se inserito
+    const realPnl = parseFloat(document.getElementById('quickCloseRealPnl').value);
     quickCloseTrade.status = 'closed';
+    if (!isNaN(realPnl)) {
+      quickCloseTrade.pnlReal = realPnl;
+    }
     quickCloseTrade.updated = Date.now();
     await dbPut(quickCloseTrade);
     closeQuickCloseModal();
     await renderReminders();
     await updateBadge();
-    showToast('📁 Trade chiuso (senza P&L)');
+    if (!isNaN(realPnl)) {
+      const sign = realPnl >= 0 ? '+' : '';
+      showToast(`📁 Chiuso · P&L reale: ${sign}${currencySymbol}${realPnl.toFixed(0)}`);
+    } else {
+      showToast('📁 Trade chiuso (senza P&L)');
+    }
   });
   document.getElementById('quickCloseConfirm').addEventListener('click', async () => {
     if (!quickCloseTrade) return;
     const e1 = parseFloat(document.getElementById('quickClosePrice1').value);
     const e2 = parseFloat(document.getElementById('quickClosePrice2').value);
-    if (isNaN(e1) || isNaN(e2)) {
-      alert('Inserisci entrambi i prezzi, oppure usa "Chiudi senza prezzi"');
+    const realPnl = parseFloat(document.getElementById('quickCloseRealPnl').value);
+    const hasPrices = !isNaN(e1) && !isNaN(e2);
+    const hasReal = !isNaN(realPnl);
+    if (!hasPrices && !hasReal) {
+      alert('Inserisci i prezzi di uscita oppure il P&L reale IBKR, oppure usa "Chiudi senza prezzi"');
       return;
     }
     const t = quickCloseTrade;
     t.status = 'closed';
-    t.exitP1 = e1;
-    t.exitP2 = e2;
-    t.exitSpread = e1 - e2;
-    const moveSpread = t.exitSpread - t.spread;
-    t.pnl = (t.action === 'BUY' ? moveSpread : -moveSpread) * t.qty * t.pointPrice;
+    if (hasPrices) {
+      t.exitP1 = e1;
+      t.exitP2 = e2;
+      t.exitSpread = e1 - e2;
+      const moveSpread = t.exitSpread - t.spread;
+      t.pnl = (t.action === 'BUY' ? moveSpread : -moveSpread) * t.qty * t.pointPrice;
+    }
+    if (hasReal) {
+      t.pnlReal = realPnl;
+    }
     t.updated = Date.now();
     await dbPut(t);
     closeQuickCloseModal();
     await renderReminders();
     await updateBadge();
-    const sign = t.pnl >= 0 ? '+' : '';
-    showToast(`📁 Chiuso · P&L: ${sign}${currencySymbol}${t.pnl.toFixed(0)}`);
+    // Mostra preferibilmente il P&L reale, altrimenti quello stimato
+    const finalPnl = hasReal ? realPnl : t.pnl;
+    const sign = finalPnl >= 0 ? '+' : '';
+    const label = hasReal ? 'reale' : 'stimato';
+    showToast(`📁 Chiuso · P&L ${label}: ${sign}${currencySymbol}${finalPnl.toFixed(0)}`);
   });
   // Tap fuori dalla box → chiudi
   document.getElementById('quickCloseModal').addEventListener('click', (e) => {
@@ -4345,6 +4535,7 @@ async function requestPersistent() {
   await loadCurrency();
   await loadGlobalCapital();
   attachQuickCloseHandlers();
+  attachTradeFilters();
   if ('Notification' in window) { notifPermission = Notification.permission; updateNotifStatus(); }
   await updateBadge();
   await checkAlerts();
