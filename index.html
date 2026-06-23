@@ -118,7 +118,165 @@
   .panel { display: none; }
   .panel.active { display: block; animation: fadeIn 0.3s ease; }
 
+  /* Section intro - chiarisce di cosa si occupa ogni sezione */
+  .section-intro {
+    background: linear-gradient(135deg, rgba(33, 150, 243, 0.08), rgba(76, 175, 80, 0.04));
+    border: 1px solid rgba(33, 150, 243, 0.2);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+  }
+  .section-intro h2 {
+    font-family: 'Inter', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    margin: 0 0 6px 0;
+  }
+  .section-intro p {
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.5;
+    margin: 0;
+  }
+  .section-intro p strong { color: var(--text); }
+
+  /* Sync status indicator nella tab bar */
+  .sync-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 8px;
+    background: var(--bg);
+    margin-left: 4px;
+  }
+  .sync-indicator.online { color: var(--green); }
+  .sync-indicator.offline { color: var(--text-faint); }
+  .sync-indicator.syncing { color: var(--blue); }
+  .sync-indicator.error { color: var(--red); }
+  @keyframes sync-spin { to { transform: rotate(360deg); } }
+  .sync-indicator.syncing .dot { animation: sync-spin 1s linear infinite; }
+
+  /* Conversione valuta */
+  .pnl-with-conversion {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .pnl-main { font-weight: 700; }
+  .pnl-conv {
+    font-size: 0.85em;
+    color: var(--text-dim);
+    font-weight: 500;
+  }
+  .pnl-conv::before { content: "≈ "; opacity: 0.6; }
+
+  /* Tooltip / help icons */
+  .field-help {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--bg-elev);
+    color: var(--text-dim);
+    font-size: 11px;
+    cursor: help;
+    margin-left: 4px;
+    border: 1px solid var(--border);
+    position: relative;
+  }
+  .field-help:hover { background: var(--blue-glow); color: var(--blue); }
+  .field-help[data-tip]:hover::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: calc(100% + 4px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-card);
+    border: 1px solid var(--border-bright);
+    color: var(--text);
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    line-height: 1.4;
+    white-space: normal;
+    width: 220px;
+    z-index: 1000;
+    text-align: left;
+    font-weight: 400;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    pointer-events: none;
+  }
+
+  /* Auth panel */
+  .auth-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .auth-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    background: var(--bg);
+    border-radius: 8px;
+    margin-bottom: 12px;
+    font-size: 13px;
+  }
+  .auth-status.logged-in { border-left: 3px solid var(--green); }
+  .auth-status.logged-out { border-left: 3px solid var(--text-faint); }
+  .auth-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--blue-glow);
+    color: var(--blue);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .auth-email {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+  }
+  .auth-step {
+    background: var(--bg);
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    border-left: 3px solid var(--border-bright);
+  }
+  .auth-step.done { border-left-color: var(--green); opacity: 0.7; }
+  .auth-step.active { border-left-color: var(--blue); }
+  .auth-step-title {
+    font-weight: 700;
+    font-size: 13px;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .auth-step-desc {
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+
   /* Filtri trade (sub-tabs all'interno della tab Trade) */
+  .trade-filters {
   .trade-filters {
     display: flex; gap: 6px; margin-bottom: 14px; overflow-x: auto;
     padding-bottom: 4px; -webkit-overflow-scrolling: touch;
@@ -1037,14 +1195,20 @@
   <div id="alertContainer"></div>
 
   <div class="tabs">
-    <button class="tab active" data-tab="calc">Calcola</button>
-    <button class="tab" data-tab="reminders">Trade<span id="reminderBadge"></span></button>
+    <button class="tab active" data-tab="calc">📝 Pianifica</button>
+    <button class="tab" data-tab="reminders">📊 Trade<span id="reminderBadge"></span></button>
     <button class="tab" data-tab="tools">🛠 Strumenti</button>
-    <button class="tab" data-tab="guide">Guida</button>
+    <button class="tab" data-tab="sync">☁️ Sync</button>
+    <button class="tab" data-tab="guide">📖 Guida</button>
     <button class="tab" data-tab="settings">⚙</button>
   </div>
 
   <section class="panel active" id="panel-calc">
+
+    <div class="section-intro">
+      <h2>📝 Pianifica un nuovo trade</h2>
+      <p>Inserisci i dati teorici dello spread che vuoi tradare. Quando lo invierai a IBKR potrai poi registrare i prezzi <strong>reali</strong> di esecuzione.</p>
+    </div>
 
     <div class="editing-badge" id="editingBadge">
       <span>✏️</span>
@@ -1303,6 +1467,10 @@
   </section>
 
   <section class="panel" id="panel-reminders">
+    <div class="section-intro">
+      <h2>📊 I tuoi trade</h2>
+      <p>Qui vedi i trade <strong>pianificati</strong>, <strong>aperti</strong> e <strong>chiusi</strong>. Filtra per status, registra prezzi reali di esecuzione e P&L finale da IBKR.</p>
+    </div>
     <div id="riskDashboardContainer"></div>
     <div class="card">
       <div class="card-title">I tuoi trade salvati</div>
@@ -1321,9 +1489,9 @@
   <!-- ========================================== -->
   <section class="panel" id="panel-tools">
 
-    <div style="text-align:center; margin-bottom: 16px;">
-      <div style="font-size: 12px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.15em; font-weight: 700;">🛠 Strumenti Avanzati</div>
-      <div style="font-size: 13px; color: var(--text-dim); margin-top: 4px;">Tap su una sezione per espanderla</div>
+    <div class="section-intro">
+      <h2>🛠 Strumenti avanzati</h2>
+      <p>Fiscalità italiana, calcolatore SPAN, lista contratti CME, glossario. Tap su una sezione per espanderla.</p>
     </div>
 
     <!-- 1. FISCALITÀ ITALIANA -->
@@ -1509,7 +1677,125 @@
 
   </section>
 
+  <section class="panel" id="panel-sync">
+    <div class="section-intro">
+      <h2>☁️ Sincronizzazione Cloud</h2>
+      <p>Connetti Firebase per <strong>vedere i tuoi trade da qualunque dispositivo</strong> (telefono + PC). L'app funziona anche senza Firebase: i dati restano salvati in locale.</p>
+    </div>
+
+    <div class="auth-panel">
+      <div id="firebaseConfigStatus">
+        <div class="auth-step" id="step1Firebase">
+          <div class="auth-step-title">1️⃣ Crea progetto Firebase (una volta sola)</div>
+          <div class="auth-step-desc">
+            Vai su <a href="https://console.firebase.google.com" target="_blank" style="color:var(--blue);">console.firebase.google.com</a> e:
+            <ol style="margin-top:8px;padding-left:20px;">
+              <li>Clicca <strong>"Aggiungi progetto"</strong> → dai un nome (es. "spread-trading") → continua</li>
+              <li>Disattiva Google Analytics (non serve) → crea progetto</li>
+              <li>Dalla home progetto clicca <strong>l'icona Web</strong> &lt;/&gt; → registra app (qualunque nome)</li>
+              <li>Copia l'oggetto <code>firebaseConfig</code> che ti mostra (6 valori)</li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="auth-step" id="step2Firebase">
+          <div class="auth-step-title">2️⃣ Attiva Authentication + Firestore</div>
+          <div class="auth-step-desc">
+            Nel pannello Firebase a sinistra:
+            <ul style="margin-top:8px;padding-left:20px;">
+              <li><strong>Build → Authentication</strong> → Inizia → seleziona <strong>"Email/Password"</strong> → abilita → salva</li>
+              <li><strong>Build → Firestore Database</strong> → Crea database → modalità <strong>"test"</strong> → posizione "eur3" → abilita</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="auth-step active" id="step3Firebase">
+          <div class="auth-step-title">3️⃣ Incolla la configurazione qui sotto</div>
+          <div class="auth-step-desc">
+            Incolla l'intero oggetto <code>firebaseConfig</code> (compresi i 6 valori) che Firebase ti ha mostrato:
+            <textarea id="firebaseConfigInput" rows="9" style="width:100%;margin-top:8px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px;border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:11px;" placeholder='{
+  apiKey: "...",
+  authDomain: "...",
+  projectId: "...",
+  storageBucket: "...",
+  messagingSenderId: "...",
+  appId: "..."
+}'></textarea>
+            <button class="btn" id="saveFirebaseConfig" style="margin-top:8px;">💾 Salva configurazione</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="firebaseAuthPanel" style="display:none;">
+        <div class="auth-status" id="authStatus">
+          <div class="auth-avatar" id="authAvatar">?</div>
+          <div style="flex:1;min-width:0;">
+            <div id="authStatusText" style="font-weight:700;">Non connesso</div>
+            <div class="auth-email" id="authEmail" style="color:var(--text-dim);">—</div>
+          </div>
+          <span class="sync-indicator offline" id="syncBadge">
+            <span class="dot">●</span> <span id="syncBadgeText">offline</span>
+          </span>
+        </div>
+
+        <div id="loginForm">
+          <div class="field" style="margin-top:12px;">
+            <label>Email</label>
+            <input type="email" id="authEmailInput" placeholder="tu@email.com" autocomplete="email">
+          </div>
+          <div class="field">
+            <label>Password (minimo 6 caratteri)</label>
+            <input type="password" id="authPasswordInput" placeholder="••••••" autocomplete="current-password">
+          </div>
+          <div class="btn-row">
+            <button class="btn" id="loginBtn">🔐 Accedi</button>
+            <button class="btn secondary" id="signupBtn">+ Crea account</button>
+          </div>
+          <div id="authError" style="margin-top:8px;color:var(--red);font-size:12px;display:none;"></div>
+        </div>
+
+        <div id="loggedInActions" style="display:none;">
+          <div class="btn-row" style="margin-top:12px;">
+            <button class="btn secondary" id="syncNowBtn">🔄 Sincronizza ora</button>
+            <button class="btn secondary" id="logoutBtn">🚪 Disconnetti</button>
+          </div>
+          <div id="syncStats" style="margin-top:12px;padding:10px;background:var(--bg);border-radius:8px;font-size:12px;color:var(--text-dim);"></div>
+        </div>
+
+        <details style="margin-top:12px;">
+          <summary style="cursor:pointer;font-size:12px;color:var(--text-dim);">⚙️ Configurazione avanzata</summary>
+          <div style="margin-top:8px;padding:10px;background:var(--bg);border-radius:6px;">
+            <button class="btn secondary" id="resetFirebaseConfigBtn" style="width:100%;">🔄 Riconfigura Firebase</button>
+            <p style="font-size:11px;color:var(--text-faint);margin-top:8px;">Cancella la configurazione Firebase salvata in questo dispositivo. Dovrai re-inserirla.</p>
+          </div>
+        </details>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px;">
+      <div class="card-title">💱 Cambio EUR/USD</div>
+      <div id="exchangeRateInfo">
+        <div class="loading" style="text-align:center;color:var(--text-dim);padding:14px;">Caricamento cambio...</div>
+      </div>
+      <button class="btn secondary" id="refreshRateBtn" style="margin-top:8px;">🔄 Aggiorna cambio</button>
+      <details style="margin-top:10px;">
+        <summary style="cursor:pointer;font-size:12px;color:var(--text-dim);">ℹ️ Come funziona la conversione</summary>
+        <div style="margin-top:8px;font-size:12px;color:var(--text-dim);line-height:1.6;padding:10px;background:var(--bg);border-radius:6px;">
+          Tutti i prezzi (entry/exit) si inseriscono in <strong>USD</strong> (è la valuta CME). I P&L vengono mostrati sia in USD che in EUR.
+          <br><br>
+          Il cambio EUR/USD viene scaricato automaticamente da exchangerate.host (gratuito, end-of-day).
+          <br><br>
+          Per ogni trade chiuso puoi anche <strong>inserire manualmente il cambio specifico</strong> che IBKR ti ha applicato (lo trovi nell'Activity Statement) per avere conversioni perfette.
+        </div>
+      </details>
+    </div>
+  </section>
+
   <section class="panel" id="panel-guide">
+    <div class="section-intro">
+      <h2>📖 Guida rapida</h2>
+      <p>Come convertire un'idea di SeasonAlgo in un ordine reale su Interactive Brokers, gestione dei calendar spread e best practice.</p>
+    </div>
     <div class="card">
       <div class="guide-section">
         <h3>SeasonAlgo → IB</h3>
@@ -1543,6 +1829,11 @@
   </section>
 
   <section class="panel" id="panel-settings">
+
+    <div class="section-intro">
+      <h2>⚙️ Impostazioni</h2>
+      <p>Valuta, capitale globale, notifiche, gestione dati locali e backup.</p>
+    </div>
 
     <div class="card">
       <div class="card-title">💱 Valuta</div>
@@ -1812,7 +2103,22 @@ async function dbPut(trade) {
     const tx = db.transaction(STORE_TRADES, 'readwrite');
     const store = tx.objectStore(STORE_TRADES);
     const req = store.put(trade);
-    req.onsuccess = () => resolve(trade);
+    req.onsuccess = () => {
+      resolve(trade);
+      // Hook: sync automatico al cloud se abilitato
+      if (typeof syncTradeToCloud === 'function') {
+        syncTradeToCloud(trade).catch(()=>{});
+      }
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function dbGet(id) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_TRADES, 'readonly');
+    const req = tx.objectStore(STORE_TRADES).get(id);
+    req.onsuccess = () => resolve(req.result || null);
     req.onerror = () => reject(req.error);
   });
 }
@@ -1831,7 +2137,13 @@ async function dbDelete(id) {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_TRADES, 'readwrite');
     const req = tx.objectStore(STORE_TRADES).delete(id);
-    req.onsuccess = () => resolve();
+    req.onsuccess = () => {
+      resolve();
+      // Hook: sync delete al cloud
+      if (typeof deleteTradeFromCloud === 'function') {
+        deleteTradeFromCloud(id).catch(()=>{});
+      }
+    };
     req.onerror = () => reject(req.error);
   });
 }
@@ -2753,21 +3065,38 @@ document.getElementById('calcTaxBtn').addEventListener('click', async () => {
     </tr>
   `).join('');
 
+  // Conversioni EUR per i totali principali
+  const isUsd = (currencySymbol === '$' || !currencySymbol);
+  const fmtDual = (amt) => {
+    if (!isUsd) return `${currencySymbol}${amt.toFixed(2)}`;
+    const eur = convertUsdToEur(amt);
+    if (eur === null) return `$${amt.toFixed(2)}`;
+    return `$${amt.toFixed(2)} <span style="font-size:11px;opacity:0.7;">(€${eur.toFixed(2)})</span>`;
+  };
+  const fmtDualSigned = (amt) => {
+    const sign = amt >= 0 ? '+' : '';
+    if (!isUsd) return `${sign}${currencySymbol}${amt.toFixed(2)}`;
+    const eur = convertUsdToEur(amt);
+    if (eur === null) return `${sign}$${amt.toFixed(2)}`;
+    return `${sign}$${amt.toFixed(2)} <span style="font-size:11px;opacity:0.7;">(${sign}€${eur.toFixed(2)})</span>`;
+  };
+
   out.innerHTML = `
     <div class="pnl-panel" style="margin-top: 14px;">
       <div style="font-size: 13px; font-weight: 700; margin-bottom: 10px;">📋 Riepilogo Fiscale ${year}</div>
+      ${isUsd && currentExchangeRate ? `<div style="font-size:11px;color:var(--text-faint);margin-bottom:8px;padding:6px 8px;background:var(--bg);border-radius:6px;">💱 Conversione con cambio ${currentExchangeRate.rate.toFixed(4)} (EUR/USD)</div>` : ''}
       <div class="pnl-row"><span class="label">Trade chiusi nell'anno</span><span class="val">${closedTrades.length}</span></div>
       <div class="pnl-row"><span class="label" style="font-size:11px;color:var(--text-faint);">↳ con P&L reale IBKR / stimato</span><span class="val" style="font-size:11px;color:var(--text-faint);">${usedRealCount} 💰 / ${closedTrades.length - usedRealCount} ~</span></div>
-      <div class="pnl-row"><span class="label">Plusvalenze totali</span><span class="val pos">+${currencySymbol}${totalProfit.toFixed(2)}</span></div>
-      <div class="pnl-row"><span class="label">Minusvalenze totali</span><span class="val neg">${currencySymbol}${totalLoss.toFixed(2)}</span></div>
-      <div class="pnl-row"><span class="label">P&L lordo</span><span class="val ${grossPnl>=0?'pos':'neg'}">${grossPnl>=0?'+':''}${currencySymbol}${grossPnl.toFixed(2)}</span></div>
-      <div class="pnl-row"><span class="label">Commissioni IB</span><span class="val neg">-${currencySymbol}${commissions.toFixed(2)}</span></div>
-      <div class="pnl-row"><span class="label">P&L netto</span><span class="val ${netPnl>=0?'pos':'neg'}">${netPnl>=0?'+':''}${currencySymbol}${netPnl.toFixed(2)}</span></div>
-      ${lossesUsed > 0 ? `<div class="pnl-row"><span class="label">Compensazione minus pregresse</span><span class="val neg">-${currencySymbol}${lossesUsed.toFixed(2)}</span></div>` : ''}
-      <div class="pnl-row"><span class="label">Imponibile</span><span class="val">${currencySymbol}${Math.max(0,taxBase).toFixed(2)}</span></div>
-      <div class="pnl-row total"><span class="label">🇮🇹 IMPOSTA ${(rate*100).toFixed(0)}%</span><span class="val ${taxDue > 0 ? 'neg' : 'pos'}">${currencySymbol}${taxDue.toFixed(2)}</span></div>
+      <div class="pnl-row"><span class="label">Plusvalenze totali</span><span class="val pos">+${fmtDual(totalProfit)}</span></div>
+      <div class="pnl-row"><span class="label">Minusvalenze totali</span><span class="val neg">${fmtDual(totalLoss)}</span></div>
+      <div class="pnl-row"><span class="label">P&L lordo</span><span class="val ${grossPnl>=0?'pos':'neg'}">${fmtDualSigned(grossPnl)}</span></div>
+      <div class="pnl-row"><span class="label">Commissioni IB</span><span class="val neg">-${fmtDual(commissions)}</span></div>
+      <div class="pnl-row"><span class="label">P&L netto</span><span class="val ${netPnl>=0?'pos':'neg'}">${fmtDualSigned(netPnl)}</span></div>
+      ${lossesUsed > 0 ? `<div class="pnl-row"><span class="label">Compensazione minus pregresse</span><span class="val neg">-${fmtDual(lossesUsed)}</span></div>` : ''}
+      <div class="pnl-row"><span class="label">Imponibile</span><span class="val">${fmtDual(Math.max(0,taxBase))}</span></div>
+      <div class="pnl-row total"><span class="label">🇮🇹 IMPOSTA ${(rate*100).toFixed(0)}%</span><span class="val ${taxDue > 0 ? 'neg' : 'pos'}">${fmtDual(taxDue)}</span></div>
     </div>
-    ${remainingLosses > 0 ? `<div class="liquidation-alert ok" style="margin-top: 10px;"><strong>💼 Minusvalenze residue</strong><br>Hai ${currencySymbol}${remainingLosses.toFixed(2)} di minusvalenze da poter usare nei prossimi 4 anni.</div>` : ''}
+    ${remainingLosses > 0 ? `<div class="liquidation-alert ok" style="margin-top: 10px;"><strong>💼 Minusvalenze residue</strong><br>Hai ${fmtDual(remainingLosses)} di minusvalenze da poter usare nei prossimi 4 anni.</div>` : ''}
     ${closedTrades.length > 20 ? `<div style="font-size:11px;color:var(--text-faint);margin-top:8px;">Mostrando primi 20 trade su ${closedTrades.length}</div>` : ''}
     <details style="margin-top: 12px;">
       <summary style="cursor:pointer;font-size:13px;color:var(--text-dim);font-weight:600;">📊 Dettaglio trade chiusi</summary>
@@ -3821,13 +4150,18 @@ async function renderReminders() {
           estBadge = `<span style="font-size:10px;color:var(--text-faint);margin-left:6px;">stim: ${estPnl>=0?'+':''}${currencySymbol}${estPnl.toFixed(0)} (Δ${diff>=0?'+':''}${diff.toFixed(0)})</span>`;
         }
       }
-      pnlBadge = `<div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;color:${pnl>=0?'var(--green)':'var(--red)'};margin-top:3px;">💰 P&L reale: ${pnl>=0?'+':''}${currencySymbol}${pnl.toFixed(2)}${estBadge}</div>`;
+      // Conversione EUR se cambio disponibile
+      const eurAmount = (currencySymbol === '$' || !currencySymbol) ? convertUsdToEur(pnl) : null;
+      const eurBadge = eurAmount !== null ? ` <span style="font-size:11px;color:${pnl>=0?'var(--green)':'var(--red)'};opacity:0.7;">≈ ${pnl>=0?'+':''}€${eurAmount.toFixed(2)}</span>` : '';
+      pnlBadge = `<div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;color:${pnl>=0?'var(--green)':'var(--red)'};margin-top:3px;">💰 P&L reale: ${pnl>=0?'+':''}${currencySymbol}${pnl.toFixed(2)}${eurBadge}${estBadge}</div>`;
     } else if (hasEstPnl) {
       const exitSpread = r.exitP1 - r.exitP2;
       const entrySpread = (r.realSpread !== null && r.realSpread !== undefined) ? r.realSpread : r.spread;
       const moveSpread = exitSpread - entrySpread;
       const pnl = (r.action === 'BUY' ? moveSpread : -moveSpread) * r.qty * r.pointPrice;
-      pnlBadge = `<div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;color:${pnl>=0?'var(--green)':'var(--red)'};margin-top:3px;">P&L stim: ${pnl>=0?'+':''}${currencySymbol}${pnl.toFixed(0)} <span style="color:var(--text-faint);font-size:10px;font-weight:400;">· tocca per inserire reale</span></div>`;
+      const eurAmount = (currencySymbol === '$' || !currencySymbol) ? convertUsdToEur(pnl) : null;
+      const eurBadge = eurAmount !== null ? ` <span style="font-size:11px;opacity:0.7;">≈ ${pnl>=0?'+':''}€${eurAmount.toFixed(2)}</span>` : '';
+      pnlBadge = `<div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;color:${pnl>=0?'var(--green)':'var(--red)'};margin-top:3px;">P&L stim: ${pnl>=0?'+':''}${currencySymbol}${pnl.toFixed(0)}${eurBadge} <span style="color:var(--text-faint);font-size:10px;font-weight:400;">· tocca per inserire reale</span></div>`;
     } else if (r.status === 'closed') {
       pnlBadge = `<div style="font-size:11px;color:var(--amber);margin-top:3px;">⚠ P&L non inserito · tocca per aggiungerlo</div>`;
     }
@@ -4143,13 +4477,16 @@ function previewQuickClosePnl() {
     const moveSpread = exitSpread - entrySpread;
     estPnl = (t.action === 'BUY' ? moveSpread : -moveSpread) * t.qty * t.pointPrice;
     const color = estPnl >= 0 ? 'var(--green)' : 'var(--red)';
+    const estEur = (currencySymbol === '$' || !currencySymbol) ? convertUsdToEur(estPnl) : null;
+    const estEurStr = estEur !== null ? `<div style="font-size:14px;color:${color};opacity:0.75;font-family:'JetBrains Mono',monospace;margin-top:2px;">≈ ${estPnl >= 0 ? '+' : ''}€${estEur.toFixed(2)}</div>` : '';
     estBlock = `
       <div style="padding:10px;background:var(--bg);border:1px solid ${color};border-radius:8px;">
         <div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.1em;font-weight:700;">P&L Stimato (da prezzi · entry ${entrySource})</div>
         <div style="font-size:22px;font-weight:800;color:${color};font-family:'JetBrains Mono',monospace;margin-top:4px;">
           ${estPnl >= 0 ? '+' : ''}${currencySymbol}${estPnl.toFixed(2)}
         </div>
-        <div style="font-size:11px;color:var(--text-faint);margin-top:2px;">Entry: ${entrySpread.toFixed(4)} → Exit: ${exitSpread.toFixed(4)} (mov. ${moveSpread >= 0 ? '+' : ''}${moveSpread.toFixed(4)})</div>
+        ${estEurStr}
+        <div style="font-size:11px;color:var(--text-faint);margin-top:4px;">Entry: ${entrySpread.toFixed(4)} → Exit: ${exitSpread.toFixed(4)} (mov. ${moveSpread >= 0 ? '+' : ''}${moveSpread.toFixed(4)})</div>
       </div>`;
   }
 
@@ -4162,12 +4499,15 @@ function previewQuickClosePnl() {
       const diffColor = Math.abs(diff) < 5 ? 'var(--text-faint)' : 'var(--amber)';
       diffBlock = `<div style="font-size:11px;color:${diffColor};margin-top:4px;">Δ vs stima: ${diff >= 0 ? '+' : ''}${currencySymbol}${diff.toFixed(2)} <span style="color:var(--text-faint);">(commissioni/slippage)</span></div>`;
     }
+    const realEur = (currencySymbol === '$' || !currencySymbol) ? convertUsdToEur(realPnl) : null;
+    const realEurStr = realEur !== null ? `<div style="font-size:14px;color:${colorR};opacity:0.75;font-family:'JetBrains Mono',monospace;margin-top:2px;">≈ ${realPnl >= 0 ? '+' : ''}€${realEur.toFixed(2)}</div>` : '';
     realBlock = `
       <div style="padding:10px;background:var(--bg);border:1px solid ${colorR};border-radius:8px;margin-top:8px;">
         <div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.1em;font-weight:700;">💰 P&L Reale (IBKR)</div>
         <div style="font-size:22px;font-weight:800;color:${colorR};font-family:'JetBrains Mono',monospace;margin-top:4px;">
           ${realPnl >= 0 ? '+' : ''}${currencySymbol}${realPnl.toFixed(2)}
         </div>
+        ${realEurStr}
         ${diffBlock}
       </div>`;
   }
@@ -4699,6 +5039,472 @@ async function requestPersistent() {
 }
 
 // ============================================================
+// EXCHANGE RATE EUR/USD (auto-fetch)
+// ============================================================
+let currentExchangeRate = null; // { rate: 1.08, date: "2026-06-23", source: "..." }
+
+async function loadExchangeRate() {
+  // Prova prima dalla cache locale
+  try {
+    const stored = localStorage.getItem('exchangeRate');
+    if (stored) {
+      const cached = JSON.parse(stored);
+      const cachedDate = new Date(cached.fetchedAt);
+      const hours = (Date.now() - cachedDate.getTime()) / (1000 * 60 * 60);
+      if (hours < 12 && cached.rate) {
+        currentExchangeRate = cached;
+        updateExchangeRateUI();
+        return;
+      }
+    }
+  } catch(e) {}
+  // Altrimenti scarica
+  await fetchExchangeRate();
+}
+
+async function fetchExchangeRate() {
+  const container = document.getElementById('exchangeRateInfo');
+  if (container) container.innerHTML = '<div class="loading" style="text-align:center;color:var(--text-dim);padding:14px;"><span style="display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:sync-spin 1s linear infinite;vertical-align:middle;"></span> Caricamento cambio...</div>';
+  // Lista di endpoint da provare (free, no auth, CORS open)
+  const endpoints = [
+    {
+      url: 'https://api.exchangerate.host/latest?base=EUR&symbols=USD',
+      parse: (d) => d?.rates?.USD,
+      source: 'exchangerate.host'
+    },
+    {
+      url: 'https://open.er-api.com/v6/latest/EUR',
+      parse: (d) => d?.rates?.USD,
+      source: 'open.er-api.com'
+    },
+    {
+      url: 'https://api.frankfurter.app/latest?from=EUR&to=USD',
+      parse: (d) => d?.rates?.USD,
+      source: 'frankfurter.app'
+    }
+  ];
+  for (const ep of endpoints) {
+    try {
+      const res = await fetch(ep.url);
+      if (!res.ok) continue;
+      const data = await res.json();
+      const rate = ep.parse(data);
+      if (rate && rate > 0.5 && rate < 2) {
+        currentExchangeRate = {
+          rate: rate,
+          date: new Date().toISOString().split('T')[0],
+          source: ep.source,
+          fetchedAt: Date.now()
+        };
+        localStorage.setItem('exchangeRate', JSON.stringify(currentExchangeRate));
+        updateExchangeRateUI();
+        return;
+      }
+    } catch(e) {
+      console.warn('Exchange rate fetch failed from', ep.source, e.message);
+    }
+  }
+  // Fallback ultimo: usa cache anche se vecchia
+  try {
+    const stored = localStorage.getItem('exchangeRate');
+    if (stored) {
+      currentExchangeRate = JSON.parse(stored);
+      updateExchangeRateUI(true);
+      return;
+    }
+  } catch(e) {}
+  // Niente da fare
+  currentExchangeRate = { rate: 1.08, date: 'fallback', source: 'default', fetchedAt: Date.now() };
+  updateExchangeRateUI(true);
+}
+
+function updateExchangeRateUI(isStale = false) {
+  const container = document.getElementById('exchangeRateInfo');
+  if (!container) return;
+  if (!currentExchangeRate) {
+    container.innerHTML = '<div style="color:var(--text-faint);text-align:center;padding:14px;">Nessun cambio disponibile</div>';
+    return;
+  }
+  const r = currentExchangeRate;
+  const usdPerEur = r.rate; // EUR=1 → USD=r.rate
+  const eurPerUsd = 1 / r.rate;
+  const fetchedAgo = Math.floor((Date.now() - r.fetchedAt) / (1000 * 60));
+  const ageText = fetchedAgo < 60 ? `${fetchedAgo}m fa` : fetchedAgo < 1440 ? `${Math.floor(fetchedAgo/60)}h fa` : `${Math.floor(fetchedAgo/1440)}g fa`;
+  container.innerHTML = `
+    <div style="display:flex;gap:12px;align-items:stretch;">
+      <div style="flex:1;background:var(--bg);padding:12px;border-radius:8px;text-align:center;">
+        <div style="font-size:11px;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.1em;font-weight:700;">1 EUR =</div>
+        <div style="font-size:22px;font-weight:800;color:var(--blue);font-family:'JetBrains Mono',monospace;margin-top:4px;">$${usdPerEur.toFixed(4)}</div>
+      </div>
+      <div style="flex:1;background:var(--bg);padding:12px;border-radius:8px;text-align:center;">
+        <div style="font-size:11px;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.1em;font-weight:700;">1 USD =</div>
+        <div style="font-size:22px;font-weight:800;color:var(--green);font-family:'JetBrains Mono',monospace;margin-top:4px;">€${eurPerUsd.toFixed(4)}</div>
+      </div>
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:var(--text-faint);text-align:center;">
+      ${isStale ? '⚠ Dato in cache · ' : ''}Aggiornato ${ageText} · Fonte: ${r.source}
+    </div>
+  `;
+}
+
+function convertUsdToEur(usdAmount) {
+  if (!currentExchangeRate || !currentExchangeRate.rate) return null;
+  return usdAmount / currentExchangeRate.rate;
+}
+
+function formatPnlDual(usdAmount) {
+  // Restituisce HTML con P&L in USD e conversione in EUR
+  const sign = usdAmount >= 0 ? '+' : '';
+  const color = usdAmount >= 0 ? 'var(--green)' : 'var(--red)';
+  const usdStr = `${sign}$${usdAmount.toFixed(2)}`;
+  const eurAmount = convertUsdToEur(usdAmount);
+  if (eurAmount === null) {
+    return `<span style="color:${color};font-weight:700;">${usdStr}</span>`;
+  }
+  const eurStr = `${sign}€${eurAmount.toFixed(2)}`;
+  return `<span class="pnl-with-conversion"><span class="pnl-main" style="color:${color};">${usdStr}</span><span class="pnl-conv" style="color:${color};opacity:0.7;">${eurStr}</span></span>`;
+}
+
+// ============================================================
+// FIREBASE CLOUD SYNC (offline-first, opzionale)
+// ============================================================
+let firebaseApp = null;
+let firebaseAuth = null;
+let firebaseDb = null;
+let firebaseUser = null;
+let firebaseSyncEnabled = false;
+let firebaseSdkLoaded = false;
+
+async function loadFirebaseSDK() {
+  if (firebaseSdkLoaded) return true;
+  // Carico Firebase SDK via CDN dinamicamente
+  try {
+    const fbApp = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js');
+    const fbAuth = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
+    const fbStore = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+    window._fb = { app: fbApp, auth: fbAuth, store: fbStore };
+    firebaseSdkLoaded = true;
+    return true;
+  } catch(e) {
+    console.error('Errore caricamento Firebase SDK:', e);
+    return false;
+  }
+}
+
+function getFirebaseConfig() {
+  try {
+    const stored = localStorage.getItem('firebaseConfig');
+    if (!stored) return null;
+    return JSON.parse(stored);
+  } catch(e) {
+    return null;
+  }
+}
+
+async function initFirebaseIfConfigured() {
+  const config = getFirebaseConfig();
+  updateSyncTabUI();
+  if (!config) return;
+  const loaded = await loadFirebaseSDK();
+  if (!loaded) {
+    showAuthError('Impossibile caricare Firebase SDK. Verifica la connessione.');
+    return;
+  }
+  try {
+    firebaseApp = window._fb.app.initializeApp(config);
+    firebaseAuth = window._fb.auth.getAuth(firebaseApp);
+    firebaseDb = window._fb.store.getFirestore(firebaseApp);
+    // Listener sullo stato auth
+    window._fb.auth.onAuthStateChanged(firebaseAuth, async (user) => {
+      firebaseUser = user;
+      updateAuthUI();
+      if (user) {
+        firebaseSyncEnabled = true;
+        await pullFromCloud();
+        setupCloudListener();
+      } else {
+        firebaseSyncEnabled = false;
+      }
+    });
+  } catch(e) {
+    console.error('Firebase init error:', e);
+    showAuthError('Errore inizializzazione Firebase: ' + e.message);
+  }
+}
+
+function attachSyncTab() {
+  document.getElementById('saveFirebaseConfig').addEventListener('click', async () => {
+    const input = document.getElementById('firebaseConfigInput').value.trim();
+    if (!input) {
+      alert('Incolla la configurazione Firebase');
+      return;
+    }
+    // Parse: accetta sia {key:"val", ...} (object literal JS) sia JSON
+    let config;
+    try {
+      // Estrai solo l'oggetto se l'utente ha incollato del codice
+      let cleaned = input.replace(/^[^{]*/, '').replace(/[^}]*$/, '');
+      // Trasforma in JSON valido
+      cleaned = cleaned.replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":')
+                       .replace(/'/g, '"');
+      config = JSON.parse(cleaned);
+    } catch(e) {
+      alert('Configurazione non valida. Incolla l\'oggetto firebaseConfig come ti viene mostrato da Firebase, dentro le parentesi {}');
+      return;
+    }
+    // Verifica campi minimi
+    const required = ['apiKey', 'authDomain', 'projectId'];
+    for (const f of required) {
+      if (!config[f]) {
+        alert(`Manca il campo obbligatorio: ${f}`);
+        return;
+      }
+    }
+    localStorage.setItem('firebaseConfig', JSON.stringify(config));
+    showToast('✓ Configurazione salvata, inizializzazione...');
+    await initFirebaseIfConfigured();
+  });
+
+  document.getElementById('loginBtn').addEventListener('click', async () => {
+    await authAction('login');
+  });
+  document.getElementById('signupBtn').addEventListener('click', async () => {
+    await authAction('signup');
+  });
+  document.getElementById('logoutBtn').addEventListener('click', async () => {
+    if (!confirm('Disconnettere? I dati locali restano disponibili.')) return;
+    try {
+      await window._fb.auth.signOut(firebaseAuth);
+      showToast('🚪 Disconnesso');
+    } catch(e) { alert('Errore logout: ' + e.message); }
+  });
+  document.getElementById('syncNowBtn').addEventListener('click', async () => {
+    if (!firebaseUser) return;
+    document.getElementById('syncBadgeText').textContent = 'sync...';
+    document.getElementById('syncBadge').className = 'sync-indicator syncing';
+    await pushAllToCloud();
+    await pullFromCloud();
+    await renderReminders();
+    updateSyncBadge('online');
+    showToast('🔄 Sync completato');
+  });
+  document.getElementById('refreshRateBtn').addEventListener('click', async () => {
+    await fetchExchangeRate();
+    showToast('💱 Cambio aggiornato');
+  });
+  document.getElementById('resetFirebaseConfigBtn').addEventListener('click', () => {
+    if (!confirm('Cancellare la configurazione Firebase? I dati restano in locale.')) return;
+    localStorage.removeItem('firebaseConfig');
+    if (firebaseAuth) {
+      window._fb.auth.signOut(firebaseAuth).catch(()=>{});
+    }
+    firebaseApp = null;
+    firebaseAuth = null;
+    firebaseDb = null;
+    firebaseUser = null;
+    firebaseSyncEnabled = false;
+    updateSyncTabUI();
+    showToast('🔄 Configurazione cancellata');
+  });
+}
+
+async function authAction(type) {
+  const email = document.getElementById('authEmailInput').value.trim();
+  const password = document.getElementById('authPasswordInput').value;
+  if (!email || !password) {
+    showAuthError('Inserisci email e password');
+    return;
+  }
+  if (password.length < 6) {
+    showAuthError('Password troppo corta (min 6 caratteri)');
+    return;
+  }
+  try {
+    if (type === 'login') {
+      await window._fb.auth.signInWithEmailAndPassword(firebaseAuth, email, password);
+      showToast('✅ Login OK');
+    } else {
+      await window._fb.auth.createUserWithEmailAndPassword(firebaseAuth, email, password);
+      showToast('✅ Account creato');
+    }
+    document.getElementById('authPasswordInput').value = '';
+    document.getElementById('authError').style.display = 'none';
+  } catch(e) {
+    let msg = e.message;
+    if (msg.includes('email-already-in-use')) msg = 'Email già usata. Usa "Accedi" invece.';
+    else if (msg.includes('wrong-password') || msg.includes('invalid-credential')) msg = 'Password errata o account inesistente.';
+    else if (msg.includes('user-not-found')) msg = 'Account non trovato. Usa "Crea account".';
+    else if (msg.includes('weak-password')) msg = 'Password troppo debole.';
+    showAuthError(msg);
+  }
+}
+
+function showAuthError(msg) {
+  const el = document.getElementById('authError');
+  el.textContent = '⚠ ' + msg;
+  el.style.display = 'block';
+}
+
+function updateSyncTabUI() {
+  const config = getFirebaseConfig();
+  const configStatus = document.getElementById('firebaseConfigStatus');
+  const authPanel = document.getElementById('firebaseAuthPanel');
+  if (config) {
+    configStatus.style.display = 'none';
+    authPanel.style.display = 'block';
+  } else {
+    configStatus.style.display = 'block';
+    authPanel.style.display = 'none';
+  }
+}
+
+function updateAuthUI() {
+  const loginForm = document.getElementById('loginForm');
+  const loggedActions = document.getElementById('loggedInActions');
+  const avatar = document.getElementById('authAvatar');
+  const statusText = document.getElementById('authStatusText');
+  const emailText = document.getElementById('authEmail');
+  const status = document.getElementById('authStatus');
+  if (firebaseUser) {
+    loginForm.style.display = 'none';
+    loggedActions.style.display = 'block';
+    avatar.textContent = (firebaseUser.email || '?').charAt(0).toUpperCase();
+    statusText.textContent = '✓ Connesso';
+    emailText.textContent = firebaseUser.email;
+    status.className = 'auth-status logged-in';
+    updateSyncBadge('online');
+  } else {
+    loginForm.style.display = 'block';
+    loggedActions.style.display = 'none';
+    avatar.textContent = '?';
+    statusText.textContent = 'Non connesso';
+    emailText.textContent = '—';
+    status.className = 'auth-status logged-out';
+    updateSyncBadge('offline');
+  }
+}
+
+function updateSyncBadge(state) {
+  const badge = document.getElementById('syncBadge');
+  const text = document.getElementById('syncBadgeText');
+  if (!badge || !text) return;
+  badge.className = 'sync-indicator ' + state;
+  const labels = { online: 'cloud', offline: 'locale', syncing: 'sync...', error: 'errore' };
+  text.textContent = labels[state] || state;
+}
+
+// PULL: scarica tutti i trade dal cloud verso locale
+async function pullFromCloud() {
+  if (!firebaseUser || !firebaseDb) return;
+  try {
+    const fs = window._fb.store;
+    const tradesRef = fs.collection(firebaseDb, 'users', firebaseUser.uid, 'trades');
+    const snapshot = await fs.getDocs(tradesRef);
+    let count = 0;
+    for (const docSnap of snapshot.docs) {
+      const data = docSnap.data();
+      // Solo se più recente del locale
+      const local = await dbGet(data.id);
+      if (!local || (data.updated || 0) > (local.updated || 0)) {
+        await dbPut(data);
+        count++;
+      }
+    }
+    updateSyncStats();
+    if (count > 0) {
+      await renderReminders();
+    }
+  } catch(e) {
+    console.error('Pull error:', e);
+    updateSyncBadge('error');
+  }
+}
+
+// PUSH: invia tutti i trade dal locale al cloud
+async function pushAllToCloud() {
+  if (!firebaseUser || !firebaseDb) return;
+  try {
+    const fs = window._fb.store;
+    const trades = await loadTrades();
+    for (const t of trades) {
+      const ref = fs.doc(firebaseDb, 'users', firebaseUser.uid, 'trades', String(t.id));
+      await fs.setDoc(ref, t);
+    }
+    updateSyncStats();
+  } catch(e) {
+    console.error('Push error:', e);
+    updateSyncBadge('error');
+  }
+}
+
+// Listener real-time sui trade del cloud
+let cloudUnsubscribe = null;
+function setupCloudListener() {
+  if (!firebaseUser || !firebaseDb) return;
+  if (cloudUnsubscribe) cloudUnsubscribe();
+  try {
+    const fs = window._fb.store;
+    const tradesRef = fs.collection(firebaseDb, 'users', firebaseUser.uid, 'trades');
+    cloudUnsubscribe = fs.onSnapshot(tradesRef, async (snapshot) => {
+      let changed = false;
+      for (const change of snapshot.docChanges()) {
+        const data = change.doc.data();
+        if (change.type === 'added' || change.type === 'modified') {
+          const local = await dbGet(data.id);
+          if (!local || (data.updated || 0) > (local.updated || 0)) {
+            await dbPut(data);
+            changed = true;
+          }
+        } else if (change.type === 'removed') {
+          await dbDelete(data.id);
+          changed = true;
+        }
+      }
+      if (changed) {
+        await renderReminders();
+        await updateBadge();
+      }
+    });
+  } catch(e) {
+    console.error('Listener error:', e);
+  }
+}
+
+// Hook: chiamata dopo ogni dbPut per sync automatico
+async function syncTradeToCloud(trade) {
+  if (!firebaseSyncEnabled || !firebaseUser || !firebaseDb) return;
+  try {
+    const fs = window._fb.store;
+    const ref = fs.doc(firebaseDb, 'users', firebaseUser.uid, 'trades', String(trade.id));
+    await fs.setDoc(ref, trade);
+  } catch(e) {
+    console.warn('Auto-sync failed:', e.message);
+  }
+}
+
+async function deleteTradeFromCloud(tradeId) {
+  if (!firebaseSyncEnabled || !firebaseUser || !firebaseDb) return;
+  try {
+    const fs = window._fb.store;
+    const ref = fs.doc(firebaseDb, 'users', firebaseUser.uid, 'trades', String(tradeId));
+    await fs.deleteDoc(ref);
+  } catch(e) {
+    console.warn('Cloud delete failed:', e.message);
+  }
+}
+
+function updateSyncStats() {
+  const el = document.getElementById('syncStats');
+  if (!el) return;
+  loadTrades().then(trades => {
+    el.innerHTML = `
+      <strong>${trades.length}</strong> trade sincronizzati su cloud · ultimo sync: ora
+    `;
+  });
+}
+
+
+// ============================================================
 // INIT
 // ============================================================
 (async function init() {
@@ -4715,6 +5521,9 @@ async function requestPersistent() {
   attachQuickCloseHandlers();
   attachQuickOpenHandlers();
   attachTradeFilters();
+  attachSyncTab();
+  await loadExchangeRate();
+  initFirebaseIfConfigured();
   if ('Notification' in window) { notifPermission = Notification.permission; updateNotifStatus(); }
   await updateBadge();
   await checkAlerts();
