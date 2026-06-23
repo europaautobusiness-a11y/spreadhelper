@@ -5238,24 +5238,52 @@ function attachSyncTab() {
       alert('Incolla la configurazione Firebase');
       return;
     }
-    // Parse: accetta sia {key:"val", ...} (object literal JS) sia JSON
-    let config;
-    try {
-      // Estrai solo l'oggetto se l'utente ha incollato del codice
-      let cleaned = input.replace(/^[^{]*/, '').replace(/[^}]*$/, '');
-      // Trasforma in JSON valido
-      cleaned = cleaned.replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":')
-                       .replace(/'/g, '"');
-      config = JSON.parse(cleaned);
-    } catch(e) {
-      alert('Configurazione non valida. Incolla l\'oggetto firebaseConfig come ti viene mostrato da Firebase, dentro le parentesi {}');
+    // Parse robusto: accetta JSON puro, object literal JS, o codice completo
+    let config = null;
+    
+    // Estrai solo la parte tra le prime { e l'ultima }
+    const firstBrace = input.indexOf('{');
+    const lastBrace = input.lastIndexOf('}');
+    if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
+      alert('Configurazione non valida: non trovo le parentesi { ... }');
       return;
     }
+    const objStr = input.substring(firstBrace, lastBrace + 1);
+    
+    // Strategia 1: prova JSON.parse diretto (se è già JSON valido)
+    try {
+      config = JSON.parse(objStr);
+    } catch(e1) {
+      // Strategia 2: prova come object literal JavaScript usando Function
+      // Questo gestisce correttamente le stringhe con ":" dentro
+      try {
+        config = new Function('return ' + objStr)();
+      } catch(e2) {
+        // Strategia 3: pulizia manuale (ultima spiaggia, regex più sicura)
+        try {
+          // Aggiungi virgolette solo ai nomi delle proprietà (chiave: non dopo virgola/graffa)
+          let cleaned = objStr.replace(/([{,]\s*)([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:/g, '$1"$2":')
+                              .replace(/'/g, '"')
+                              // Rimuovi eventuali virgole finali prima di }
+                              .replace(/,(\s*})/g, '$1');
+          config = JSON.parse(cleaned);
+        } catch(e3) {
+          alert('Configurazione non valida. Verifica di aver copiato l\'intero oggetto firebaseConfig da Firebase.\n\nErrori: ' + e1.message);
+          return;
+        }
+      }
+    }
+    
+    if (!config || typeof config !== 'object') {
+      alert('Configurazione non valida: il risultato non è un oggetto.');
+      return;
+    }
+    
     // Verifica campi minimi
     const required = ['apiKey', 'authDomain', 'projectId'];
     for (const f of required) {
       if (!config[f]) {
-        alert(`Manca il campo obbligatorio: ${f}`);
+        alert(`Manca il campo obbligatorio: ${f}\n\nCampi trovati: ${Object.keys(config).join(', ')}`);
         return;
       }
     }
