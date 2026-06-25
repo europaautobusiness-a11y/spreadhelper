@@ -275,6 +275,138 @@
     line-height: 1.5;
   }
 
+  /* ============================================================
+     DASHBOARD V2
+     ============================================================ */
+  .dash-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  @media (min-width: 600px) {
+    .dash-grid.two { grid-template-columns: 1fr 1fr; }
+    .dash-grid.three { grid-template-columns: 1fr 1fr 1fr; }
+  }
+  .kpi {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+  }
+  .kpi.hero {
+    background: linear-gradient(135deg, rgba(81,207,102,0.08), rgba(81,207,102,0.02));
+    border-color: rgba(81,207,102,0.3);
+  }
+  .kpi.hero.neg {
+    background: linear-gradient(135deg, rgba(255,107,107,0.08), rgba(255,107,107,0.02));
+    border-color: rgba(255,107,107,0.3);
+  }
+  .kpi-label {
+    font-size: 10px;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .kpi-val {
+    font-size: 22px;
+    font-weight: 800;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text);
+    line-height: 1.1;
+  }
+  .kpi-val.pos { color: var(--green); }
+  .kpi-val.neg { color: var(--red); }
+  .kpi-val.big { font-size: 30px; }
+  .kpi-sub {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+  .kpi-bar {
+    background: var(--bg);
+    border-radius: 999px;
+    height: 5px;
+    margin-top: 6px;
+    overflow: hidden;
+  }
+  .kpi-bar-fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.4s;
+  }
+  .kpi-bar-fill.green { background: var(--green); }
+  .kpi-bar-fill.red { background: var(--red); }
+
+  /* Equity curve chart */
+  .eq-chart {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 12px;
+  }
+  .eq-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .eq-svg {
+    width: 100%;
+    height: 200px;
+  }
+  .eq-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-top: 10px;
+    text-align: center;
+  }
+  .eq-stats > div { padding: 6px; background: var(--bg); border-radius: 6px; }
+  .eq-stat-label {
+    font-size: 9px;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+  .eq-stat-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 13px;
+    margin-top: 2px;
+  }
+
+  /* Category breakdown */
+  .cat-row {
+    display: grid;
+    grid-template-columns: 60px 1fr auto;
+    gap: 10px;
+    align-items: center;
+    padding: 8px 12px;
+    background: var(--bg);
+    border-radius: 8px;
+    margin-bottom: 6px;
+    font-size: 12px;
+  }
+  .cat-name {
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .cat-stats {
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .cat-pnl {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    text-align: right;
+  }
+
   /* Filtri trade (sub-tabs all'interno della tab Trade) */
   .trade-filters {
     display: flex; gap: 6px; margin-bottom: 14px; overflow-x: auto;
@@ -1194,15 +1326,26 @@
   <div id="alertContainer"></div>
 
   <div class="tabs">
-    <button class="tab active" data-tab="calc">📝 Pianifica</button>
-    <button class="tab" data-tab="reminders">📊 Trade<span id="reminderBadge"></span></button>
+    <button class="tab active" data-tab="dashboard">📊 Dashboard</button>
+    <button class="tab" data-tab="calc">📝 Pianifica</button>
+    <button class="tab" data-tab="reminders">📁 Trade<span id="reminderBadge"></span></button>
     <button class="tab" data-tab="tools">🛠 Strumenti</button>
     <button class="tab" data-tab="sync">☁️ Sync</button>
     <button class="tab" data-tab="guide">📖 Guida</button>
     <button class="tab" data-tab="settings">⚙</button>
   </div>
 
-  <section class="panel active" id="panel-calc">
+  <section class="panel active" id="panel-dashboard">
+    <div class="section-intro">
+      <h2>📊 Dashboard</h2>
+      <p>Performance globale, equity curve, statistiche per categoria.</p>
+    </div>
+    <div id="dashContent">
+      <div style="text-align:center;padding:40px;color:var(--text-dim);">Caricamento...</div>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-calc">
 
     <div class="section-intro">
       <h2>📝 Pianifica un nuovo trade</h2>
@@ -2206,6 +2349,7 @@ tabs.forEach(t => t.addEventListener('click', () => {
   if (t.dataset.tab === 'reminders') renderReminders();
   if (t.dataset.tab === 'settings') updateStorageInfo();
   if (t.dataset.tab === 'tools') initToolsTab();
+  if (t.dataset.tab === 'dashboard') renderDashboard();
 }));
 
 const spreadType = document.getElementById('spreadType');
@@ -5532,6 +5676,255 @@ function updateSyncStats() {
 
 
 // ============================================================
+// DASHBOARD V2 - Statistiche, equity curve, heatmap, per-categoria
+// ============================================================
+async function renderDashboard() {
+  const container = document.getElementById('dashContent');
+  if (!container) return;
+  
+  const trades = await loadTrades();
+  
+  // Filtra trade chiusi con P&L disponibile (reale o stimato)
+  const closed = trades.filter(t => t.status === 'closed').filter(t => {
+    return (t.pnlReal !== null && t.pnlReal !== undefined) ||
+           (t.exitP1 !== null && t.exitP1 !== undefined);
+  });
+  
+  // Calcola P&L per ogni trade chiuso (usa reale se c'è, altrimenti stima)
+  const cwp = closed.map(t => {
+    let pnl;
+    if (t.pnlReal !== null && t.pnlReal !== undefined) {
+      pnl = t.pnlReal;
+    } else {
+      const exitSpread = t.exitP1 - t.exitP2;
+      const entrySpread = (t.realSpread !== null && t.realSpread !== undefined) ? t.realSpread : t.spread;
+      const moveSpread = exitSpread - entrySpread;
+      pnl = (t.action === 'BUY' ? moveSpread : -moveSpread) * t.qty * t.pointPrice;
+    }
+    return { ...t, _pnl: pnl, _date: new Date(t.updated || t.created || t.ts) };
+  });
+
+  const cs = currencySymbol || '$';
+  const isUsd = cs === '$';
+  
+  // Helper: formatta P&L con conversione EUR se applicabile
+  const fmtPnl = (amt, big=false) => {
+    const sign = amt >= 0 ? '+' : '';
+    const abs = Math.abs(amt);
+    let usdStr = `${sign}${cs}${abs >= 1000 ? amt.toFixed(0) : amt.toFixed(2)}`;
+    if (isUsd) {
+      const eur = convertUsdToEur(amt);
+      if (eur !== null) {
+        const eurAbs = Math.abs(eur);
+        const eurStr = `${sign}€${eurAbs >= 1000 ? eur.toFixed(0) : eur.toFixed(2)}`;
+        if (big) {
+          return `${usdStr}<div style="font-size:14px;opacity:0.7;margin-top:2px;">≈ ${eurStr}</div>`;
+        }
+        return `${usdStr} <span style="font-size:0.7em;opacity:0.7;">(${eurStr})</span>`;
+      }
+    }
+    return usdStr;
+  };
+
+  // Statistiche generali
+  const totalPnl = cwp.reduce((s,t) => s + t._pnl, 0);
+  const wins = cwp.filter(t => t._pnl > 0);
+  const losses = cwp.filter(t => t._pnl < 0);
+  const winRate = cwp.length > 0 ? (wins.length / cwp.length) * 100 : 0;
+  const sumWins = wins.reduce((s,t) => s + t._pnl, 0);
+  const sumLosses = Math.abs(losses.reduce((s,t) => s + t._pnl, 0));
+  const pf = sumLosses > 0 ? sumWins / sumLosses : (sumWins > 0 ? Infinity : 0);
+  const avgWin = wins.length > 0 ? sumWins / wins.length : 0;
+  const avgLoss = losses.length > 0 ? -sumLosses / losses.length : 0;
+  const expectancy = cwp.length > 0 ? totalPnl / cwp.length : 0;
+
+  // YTD vs anno precedente
+  const now = new Date();
+  const ytd = cwp.filter(t => t._date.getFullYear() === now.getFullYear());
+  const ytdPnl = ytd.reduce((s,t) => s + t._pnl, 0);
+  const prevYear = cwp.filter(t => t._date.getFullYear() === now.getFullYear() - 1);
+  const prevPnl = prevYear.reduce((s,t) => s + t._pnl, 0);
+
+  // Trade aperti / pianificati
+  const open = trades.filter(t => t.status === 'open').length;
+  const planned = trades.filter(t => (t.status || 'planned') === 'planned').length;
+
+  // Empty state
+  if (cwp.length === 0) {
+    container.innerHTML = `
+      <div class="kpi" style="text-align:center;padding:40px 20px;">
+        <div style="font-size:42px;margin-bottom:10px;">📭</div>
+        <div style="font-size:14px;font-weight:600;margin-bottom:6px;">Nessun trade chiuso ancora</div>
+        <div style="font-size:12px;color:var(--text-dim);line-height:1.5;">Le statistiche appariranno qui appena chiuderai il primo trade.<br>Per ora hai <strong>${open}</strong> trade aperti e <strong>${planned}</strong> pianificati.</div>
+      </div>
+    `;
+    return;
+  }
+
+  let html = '';
+  
+  // ─── HERO: P&L anno corrente ───
+  const heroClass = ytdPnl >= 0 ? 'hero' : 'hero neg';
+  const trendVsPrev = prevPnl !== 0 ? ((ytdPnl - prevPnl) / Math.abs(prevPnl)) * 100 : null;
+  const trendBadge = (trendVsPrev !== null && prevYear.length > 0) ?
+    ` <span style="font-size:13px;font-weight:600;padding:2px 8px;border-radius:6px;${trendVsPrev>=0?'background:rgba(81,207,102,0.2);color:var(--green);':'background:rgba(255,107,107,0.2);color:var(--red);'}">${trendVsPrev>=0?'▲':'▼'}${Math.abs(trendVsPrev).toFixed(0)}% vs ${now.getFullYear()-1}</span>` : '';
+  
+  html += `
+    <div class="kpi ${heroClass}" style="margin-bottom:12px;">
+      <div class="kpi-label">P&L ${now.getFullYear()}</div>
+      <div class="kpi-val big ${ytdPnl>=0?'pos':'neg'}">${fmtPnl(ytdPnl, true)}${trendBadge}</div>
+      <div class="kpi-sub">${ytd.length} trade chiusi · ${ytd.filter(t => t._pnl > 0).length} vincenti su ${ytd.length}</div>
+    </div>
+  `;
+
+  // ─── KPI griglia 3 ───
+  html += `<div class="dash-grid three">
+    <div class="kpi">
+      <div class="kpi-label">Win Rate</div>
+      <div class="kpi-val">${winRate.toFixed(0)}%</div>
+      <div class="kpi-bar"><div class="kpi-bar-fill ${winRate >= 50 ? 'green' : 'red'}" style="width:${winRate}%"></div></div>
+      <div class="kpi-sub">${wins.length}W / ${losses.length}L su ${cwp.length}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Profit Factor</div>
+      <div class="kpi-val ${pf >= 1.5 ? 'pos' : pf >= 1 ? '' : 'neg'}">${pf === Infinity ? '∞' : pf.toFixed(2)}</div>
+      <div class="kpi-sub">${pf >= 2 ? '✨ Eccellente' : pf >= 1.5 ? '👍 Buono' : pf >= 1 ? 'Profittevole' : '⚠ Negativo'}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Expectancy</div>
+      <div class="kpi-val ${expectancy>=0?'pos':'neg'}" style="font-size:16px;">${fmtPnl(expectancy)}</div>
+      <div class="kpi-sub">per trade</div>
+    </div>
+  </div>`;
+
+  // ─── KPI griglia 3 (secondo set) ───
+  html += `<div class="dash-grid three">
+    <div class="kpi">
+      <div class="kpi-label">Vinta media</div>
+      <div class="kpi-val pos" style="font-size:16px;">${fmtPnl(avgWin)}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Persa media</div>
+      <div class="kpi-val neg" style="font-size:16px;">${fmtPnl(avgLoss)}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Posizione</div>
+      <div class="kpi-val" style="font-size:18px;">${open} <span style="font-size:0.55em;color:var(--text-faint);">+ ${planned}</span></div>
+      <div class="kpi-sub">aperti + pianif.</div>
+    </div>
+  </div>`;
+
+  // ─── Equity curve ───
+  if (cwp.length >= 2) {
+    html += renderEquityCurveSVG(cwp, fmtPnl);
+  }
+
+  // ─── Performance per sottostante ───
+  html += renderCategoryStats(cwp);
+
+  container.innerHTML = html;
+}
+
+function renderEquityCurveSVG(cwp, fmtPnl) {
+  const sorted = [...cwp].sort((a,b) => a._date - b._date);
+  let cum = 0;
+  const pts = sorted.map(t => {
+    cum += t._pnl;
+    return { date: t._date, pnl: cum, single: t._pnl };
+  });
+  if (pts.length < 2) return '';
+
+  const w = 600, h = 200, pL = 50, pR = 10, pT = 15, pB = 25;
+  const minY = Math.min(0, ...pts.map(p => p.pnl));
+  const maxY = Math.max(0, ...pts.map(p => p.pnl));
+  const range = (maxY - minY) || 1;
+  const xs = pts.map((p,i) => pL + (i / (pts.length - 1)) * (w - pL - pR));
+  const ys = pts.map(p => pT + (1 - (p.pnl - minY) / range) * (h - pT - pB));
+  const zeroY = pT + (1 - (0 - minY) / range) * (h - pT - pB);
+  
+  const linePath = xs.map((x,i) => `${i===0?'M':'L'}${x},${ys[i]}`).join(' ');
+  const fillPath = `${linePath} L${xs[xs.length-1]},${zeroY} L${xs[0]},${zeroY} Z`;
+  
+  // Y labels (3 valori)
+  const yLabels = [
+    { v: maxY, y: pT + 3 },
+    { v: (maxY+minY)/2, y: pT + (h-pT-pB)/2 + 3 },
+    { v: minY, y: h - pB + 3 }
+  ].map(l => {
+    const sign = l.v >= 0 ? '+' : '';
+    return `<text x="${pL-4}" y="${l.y}" text-anchor="end" font-size="9" fill="#7a8a87" font-family="monospace">${sign}${l.v.toFixed(0)}</text>`;
+  }).join('');
+
+  // Grid lines
+  const grid = [0.25, 0.5, 0.75].map(p => {
+    const y = pT + p * (h - pT - pB);
+    return `<line x1="${pL}" y1="${y}" x2="${w-pR}" y2="${y}" stroke="#2a3839" stroke-width="0.5" stroke-dasharray="2 4" opacity="0.5"/>`;
+  }).join('');
+
+  const cs = currencySymbol || '$';
+  const final = pts[pts.length-1].pnl;
+
+  return `
+    <div class="eq-chart">
+      <div class="eq-title">
+        <span>📈 Equity Curve</span>
+        <span style="font-size:11px;color:var(--text-faint);font-weight:400;">${pts.length} trade chiusi</span>
+      </div>
+      <svg class="eq-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="eqGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#51cf66" stop-opacity="0.4"/>
+            <stop offset="100%" stop-color="#51cf66" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        ${grid}
+        <path d="${fillPath}" fill="url(#eqGrad)" opacity="0.5"/>
+        <line x1="${pL}" y1="${zeroY}" x2="${w-pR}" y2="${zeroY}" stroke="#7a8a87" stroke-width="0.5" stroke-dasharray="3 3"/>
+        <path d="${linePath}" stroke="#51cf66" stroke-width="2" fill="none"/>
+        ${yLabels}
+      </svg>
+      <div style="margin-top:12px;padding:10px;background:var(--bg);border-radius:8px;text-align:center;">
+        <div class="eq-stat-label">P&L cumulato</div>
+        <div class="eq-stat-val" style="color:${final>=0?'var(--green)':'var(--red)'};font-size:18px;margin-top:4px;">${final>=0?'+':''}${cs}${final.toFixed(0)}</div>
+      </div>
+      <div style="font-size:10px;color:var(--text-faint);margin-top:8px;text-align:center;font-style:italic;">
+        Basato sulla somma cumulativa dei P&L dei trade chiusi
+      </div>
+    </div>
+  `;
+}
+
+function renderCategoryStats(cwp) {
+  const groups = {};
+  cwp.forEach(t => {
+    const ticker = ((t.leg1 || '').split(/\s+/)[0] || 'UNK').toUpperCase();
+    if (!groups[ticker]) groups[ticker] = { wins: 0, losses: 0, pnl: 0, count: 0 };
+    groups[ticker].count++;
+    groups[ticker].pnl += t._pnl;
+    if (t._pnl > 0) groups[ticker].wins++; else groups[ticker].losses++;
+  });
+  const sorted = Object.entries(groups).sort((a,b) => Math.abs(b[1].pnl) - Math.abs(a[1].pnl));
+  if (sorted.length === 0) return '';
+  const cs = currencySymbol || '$';
+
+  return `
+    <div class="kpi" style="margin-bottom:12px;">
+      <div class="kpi-label" style="margin-bottom:10px;">📊 Performance per sottostante</div>
+      ${sorted.map(([t, s]) => {
+        const wr = s.count > 0 ? (s.wins / s.count) * 100 : 0;
+        return `
+          <div class="cat-row">
+            <div class="cat-name">${t}</div>
+            <div class="cat-stats">${s.wins}W/${s.losses}L · ${wr.toFixed(0)}% · ${s.count}×</div>
+            <div class="cat-pnl" style="color:${s.pnl>=0?'var(--green)':'var(--red)'};">${s.pnl>=0?'+':''}${cs}${s.pnl.toFixed(0)}</div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+// ============================================================
 // INIT
 // ============================================================
 (async function init() {
@@ -5555,6 +5948,8 @@ function updateSyncStats() {
   await updateBadge();
   await checkAlerts();
   setInterval(checkAlerts, 60000);
+  // Render dashboard alla prima apertura (è il tab default)
+  renderDashboard();
 })();
 </script>
 </body>
