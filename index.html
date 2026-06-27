@@ -2159,9 +2159,15 @@
           💰 P&L reale da IBKR (opzionale)
           <span style="font-size:10px;color:var(--text-faint);font-weight:400;">— include commissioni & fees</span>
         </label>
-        <input type="number" id="quickCloseRealPnl" step="0.01" inputmode="decimal" placeholder="es. 245.50 oppure -120.30">
+        <div style="display:flex;gap:6px;align-items:stretch;">
+          <input type="number" id="quickCloseRealPnl" step="0.01" inputmode="decimal" placeholder="es. 245.50 oppure -120.30" style="flex:1;">
+          <select id="quickCloseRealPnlCurrency" style="width:80px;padding:8px;background:var(--bg-elev);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;font-weight:600;">
+            <option value="EUR">EUR €</option>
+            <option value="USD">USD $</option>
+          </select>
+        </div>
         <div class="hint" style="font-size:11px;color:var(--text-faint);margin-top:4px;line-height:1.4;">
-          Se inserisci il P&L netto comunicato da Interactive Brokers, sarà salvato come valore <strong>reale</strong> (oltre a quello stimato dai prezzi).
+          Inserisci il P&L netto comunicato da IBKR nella valuta in cui te lo dà (EUR se il tuo conto ha base EUR, USD se ha base USD).
         </div>
       </div>
     </div>
@@ -4280,23 +4286,32 @@ async function renderReminders() {
     const hasRealPnl = r.pnlReal !== undefined && r.pnlReal !== null;
     let pnlBadge = '';
     if (hasRealPnl) {
-      // Mostra P&L reale (priorità)
+      // Mostra P&L reale (priorità). Rispetta la valuta scelta dall'utente
       const pnl = r.pnlReal;
+      const realCurr = r.pnlRealCurrency || 'EUR';
+      const realSymb = realCurr === 'EUR' ? '€' : '$';
       let estBadge = '';
       if (hasEstPnl) {
         const exitSpread = r.exitP1 - r.exitP2;
         const entrySpread = (r.realSpread !== null && r.realSpread !== undefined) ? r.realSpread : r.spread;
         const moveSpread = exitSpread - entrySpread;
         const estPnl = (r.action === 'BUY' ? moveSpread : -moveSpread) * r.qty * r.pointPrice;
-        const diff = pnl - estPnl;
+        // Confronto in stessa valuta
+        const estInRealCurr = (realCurr === 'EUR' && currentExchangeRate?.rate) ? (estPnl / currentExchangeRate.rate) : estPnl;
+        const diff = pnl - estInRealCurr;
         if (Math.abs(diff) >= 1) {
-          estBadge = `<span style="font-size:10px;color:var(--text-faint);margin-left:6px;">stim: ${estPnl>=0?'+':''}${currencySymbol}${estPnl.toFixed(0)} (Δ${diff>=0?'+':''}${diff.toFixed(0)})</span>`;
+          estBadge = `<span style="font-size:10px;color:var(--text-faint);margin-left:6px;">stim: ${estInRealCurr>=0?'+':''}${realSymb}${estInRealCurr.toFixed(0)} (Δ${diff>=0?'+':''}${diff.toFixed(0)})</span>`;
         }
       }
-      // Conversione EUR se cambio disponibile
-      const eurAmount = (currencySymbol === '$' || !currencySymbol) ? convertUsdToEur(pnl) : null;
-      const eurBadge = eurAmount !== null ? ` <span style="font-size:11px;color:${pnl>=0?'var(--green)':'var(--red)'};opacity:0.7;">≈ ${pnl>=0?'+':''}€${eurAmount.toFixed(2)}</span>` : '';
-      pnlBadge = `<div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;color:${pnl>=0?'var(--green)':'var(--red)'};margin-top:3px;">💰 P&L reale: ${pnl>=0?'+':''}${currencySymbol}${pnl.toFixed(2)}${eurBadge}${estBadge}</div>`;
+      // Conversione nell'altra valuta
+      let convBadge = '';
+      if (currentExchangeRate?.rate) {
+        let convAmt, convSymb;
+        if (realCurr === 'EUR') { convAmt = pnl * currentExchangeRate.rate; convSymb = '$'; }
+        else { convAmt = pnl / currentExchangeRate.rate; convSymb = '€'; }
+        convBadge = ` <span style="font-size:11px;color:${pnl>=0?'var(--green)':'var(--red)'};opacity:0.7;">≈ ${pnl>=0?'+':''}${convSymb}${convAmt.toFixed(2)}</span>`;
+      }
+      pnlBadge = `<div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;color:${pnl>=0?'var(--green)':'var(--red)'};margin-top:3px;">💰 P&L reale: ${pnl>=0?'+':''}${realSymb}${pnl.toFixed(2)}${convBadge}${estBadge}</div>`;
     } else if (hasEstPnl) {
       const exitSpread = r.exitP1 - r.exitP2;
       const entrySpread = (r.realSpread !== null && r.realSpread !== undefined) ? r.realSpread : r.spread;
@@ -4577,6 +4592,7 @@ function openQuickCloseModal(trade) {
   document.getElementById('quickClosePrice1').value = trade.exitP1 != null ? trade.exitP1 : '';
   document.getElementById('quickClosePrice2').value = trade.exitP2 != null ? trade.exitP2 : '';
   document.getElementById('quickCloseRealPnl').value = trade.pnlReal != null ? trade.pnlReal : '';
+  document.getElementById('quickCloseRealPnlCurrency').value = trade.pnlRealCurrency || 'EUR';
   document.getElementById('quickClosePnlPreview').innerHTML = '';
   modal.classList.add('show');
   document.body.style.overflow = 'hidden';
@@ -4635,22 +4651,38 @@ function previewQuickClosePnl() {
 
   let realBlock = '';
   if (hasReal) {
+    const realPnlCurrency = document.getElementById('quickCloseRealPnlCurrency').value || 'EUR';
+    const realSymb = realPnlCurrency === 'EUR' ? '€' : '$';
     const colorR = realPnl >= 0 ? 'var(--green)' : 'var(--red)';
-    let diffBlock = '';
-    if (estPnl !== null) {
-      const diff = realPnl - estPnl;
-      const diffColor = Math.abs(diff) < 5 ? 'var(--text-faint)' : 'var(--amber)';
-      diffBlock = `<div style="font-size:11px;color:${diffColor};margin-top:4px;">Δ vs stima: ${diff >= 0 ? '+' : ''}${currencySymbol}${diff.toFixed(2)} <span style="color:var(--text-faint);">(commissioni/slippage)</span></div>`;
+    // Conversione: se P&L reale è in EUR, mostra anche USD; se in USD, mostra anche EUR
+    let convBlock = '';
+    if (currentExchangeRate && currentExchangeRate.rate) {
+      let convAmt, convSymb;
+      if (realPnlCurrency === 'EUR') {
+        convAmt = realPnl * currentExchangeRate.rate; // EUR → USD
+        convSymb = '$';
+      } else {
+        convAmt = realPnl / currentExchangeRate.rate; // USD → EUR
+        convSymb = '€';
+      }
+      convBlock = `<div style="font-size:14px;color:${colorR};opacity:0.75;font-family:'JetBrains Mono',monospace;margin-top:2px;">≈ ${realPnl >= 0 ? '+' : ''}${convSymb}${convAmt.toFixed(2)}</div>`;
     }
-    const realEur = (currencySymbol === '$' || !currencySymbol) ? convertUsdToEur(realPnl) : null;
-    const realEurStr = realEur !== null ? `<div style="font-size:14px;color:${colorR};opacity:0.75;font-family:'JetBrains Mono',monospace;margin-top:2px;">≈ ${realPnl >= 0 ? '+' : ''}€${realEur.toFixed(2)}</div>` : '';
+    // Δ vs stima: confronto sensato solo se valute uguali (o convertiamo)
+    let diffBlock = '';
+    if (estPnl !== null && currentExchangeRate && currentExchangeRate.rate) {
+      // estPnl è in USD (calcolato da prezzi USD). Lo confronto col P&L reale convertito alla stessa valuta
+      const estInRealCurr = realPnlCurrency === 'USD' ? estPnl : (estPnl / currentExchangeRate.rate);
+      const diff = realPnl - estInRealCurr;
+      const diffColor = Math.abs(diff) < 5 ? 'var(--text-faint)' : 'var(--amber)';
+      diffBlock = `<div style="font-size:11px;color:${diffColor};margin-top:4px;">Δ vs stima: ${diff >= 0 ? '+' : ''}${realSymb}${diff.toFixed(2)} <span style="color:var(--text-faint);">(commissioni/slippage/cambio)</span></div>`;
+    }
     realBlock = `
       <div style="padding:10px;background:var(--bg);border:1px solid ${colorR};border-radius:8px;margin-top:8px;">
         <div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.1em;font-weight:700;">💰 P&L Reale (IBKR)</div>
         <div style="font-size:22px;font-weight:800;color:${colorR};font-family:'JetBrains Mono',monospace;margin-top:4px;">
-          ${realPnl >= 0 ? '+' : ''}${currencySymbol}${realPnl.toFixed(2)}
+          ${realPnl >= 0 ? '+' : ''}${realSymb}${realPnl.toFixed(2)}
         </div>
-        ${realEurStr}
+        ${convBlock}
         ${diffBlock}
       </div>`;
   }
@@ -4684,14 +4716,17 @@ function attachQuickCloseHandlers() {
   document.getElementById('quickClosePrice1').addEventListener('input', previewQuickClosePnl);
   document.getElementById('quickClosePrice2').addEventListener('input', previewQuickClosePnl);
   document.getElementById('quickCloseRealPnl').addEventListener('input', previewQuickClosePnl);
+  document.getElementById('quickCloseRealPnlCurrency').addEventListener('change', previewQuickClosePnl);
   document.getElementById('quickCloseCancel').addEventListener('click', closeQuickCloseModal);
   document.getElementById('quickCloseSkip').addEventListener('click', async () => {
     if (!quickCloseTrade) return;
     // Anche con "skip prezzi", salva il P&L reale se inserito
     const realPnl = parseFloat(document.getElementById('quickCloseRealPnl').value);
+    const realPnlCurrency = document.getElementById('quickCloseRealPnlCurrency').value || 'EUR';
     quickCloseTrade.status = 'closed';
     if (!isNaN(realPnl)) {
       quickCloseTrade.pnlReal = realPnl;
+      quickCloseTrade.pnlRealCurrency = realPnlCurrency;
     }
     quickCloseTrade.updated = Date.now();
     await dbPut(quickCloseTrade);
@@ -4700,7 +4735,8 @@ function attachQuickCloseHandlers() {
     await updateBadge();
     if (!isNaN(realPnl)) {
       const sign = realPnl >= 0 ? '+' : '';
-      showToast(`📁 Chiuso · P&L reale: ${sign}${currencySymbol}${realPnl.toFixed(0)}`);
+      const symb = realPnlCurrency === 'EUR' ? '€' : '$';
+      showToast(`📁 Chiuso · P&L reale: ${sign}${symb}${realPnl.toFixed(0)}`);
     } else {
       showToast('📁 Trade chiuso (senza P&L)');
     }
@@ -4710,6 +4746,7 @@ function attachQuickCloseHandlers() {
     const e1 = parseFloat(document.getElementById('quickClosePrice1').value);
     const e2 = parseFloat(document.getElementById('quickClosePrice2').value);
     const realPnl = parseFloat(document.getElementById('quickCloseRealPnl').value);
+    const realPnlCurrency = document.getElementById('quickCloseRealPnlCurrency').value || 'EUR';
     const hasPrices = !isNaN(e1) && !isNaN(e2);
     const hasReal = !isNaN(realPnl);
     if (!hasPrices && !hasReal) {
@@ -4729,6 +4766,7 @@ function attachQuickCloseHandlers() {
     }
     if (hasReal) {
       t.pnlReal = realPnl;
+      t.pnlRealCurrency = realPnlCurrency;
     }
     t.updated = Date.now();
     await dbPut(t);
@@ -4739,7 +4777,8 @@ function attachQuickCloseHandlers() {
     const finalPnl = hasReal ? realPnl : t.pnl;
     const sign = finalPnl >= 0 ? '+' : '';
     const label = hasReal ? 'reale' : 'stimato';
-    showToast(`📁 Chiuso · P&L ${label}: ${sign}${currencySymbol}${finalPnl.toFixed(0)}`);
+    const toastSymb = hasReal ? (realPnlCurrency === 'EUR' ? '€' : '$') : (currencySymbol || '$');
+    showToast(`📁 Chiuso · P&L ${label}: ${sign}${toastSymb}${finalPnl.toFixed(0)}`);
   });
   // Tap fuori dalla box → chiudi
   document.getElementById('quickCloseModal').addEventListener('click', (e) => {
@@ -5692,9 +5731,15 @@ async function renderDashboard() {
   
   // Calcola P&L per ogni trade chiuso (usa reale se c'è, altrimenti stima)
   const cwp = closed.map(t => {
-    let pnl;
+    let pnl; // Sempre normalizzato in USD per coerenza nei calcoli
     if (t.pnlReal !== null && t.pnlReal !== undefined) {
-      pnl = t.pnlReal;
+      // Se P&L reale è in EUR, converti in USD per uniformare
+      const realCurr = t.pnlRealCurrency || 'EUR';
+      if (realCurr === 'EUR' && currentExchangeRate?.rate) {
+        pnl = t.pnlReal * currentExchangeRate.rate; // EUR → USD
+      } else {
+        pnl = t.pnlReal;
+      }
     } else {
       const exitSpread = t.exitP1 - t.exitP2;
       const entrySpread = (t.realSpread !== null && t.realSpread !== undefined) ? t.realSpread : t.spread;
