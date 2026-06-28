@@ -4788,7 +4788,7 @@ function attachQuickCloseHandlers() {
     const finalPnl = hasReal ? realPnl : t.pnl;
     const sign = finalPnl >= 0 ? '+' : '';
     const label = hasReal ? 'reale' : 'stimato';
-    const toastSymb = hasReal ? (realPnlCurrency === 'EUR' ? '€' : '$') : (currencySymbol || '$');
+    const toastSymb = hasReal ? (realPnlCurrency === 'EUR' ? '€' : '$') : (currencySymbol || '€');
     showToast(`📁 Chiuso · P&L ${label}: ${sign}${toastSymb}${finalPnl.toFixed(0)}`);
   });
   // Tap fuori dalla box → chiudi
@@ -5740,46 +5740,69 @@ async function renderDashboard() {
            (t.exitP1 !== null && t.exitP1 !== undefined);
   });
   
-  // Calcola P&L per ogni trade chiuso (usa reale se c'è, altrimenti stima)
+  // Calcola P&L per ogni trade chiuso, NORMALIZZATO nella valuta del conto utente
+  // (currencyCode: 'EUR' per conto base EUR, 'USD' per conto base USD, ecc.)
+  const accountCurr = currencyCode || 'EUR';
+  const rate = currentExchangeRate?.rate || 1; // EUR → USD (es. 1.14)
+  
   const cwp = closed.map(t => {
-    let pnl; // Sempre normalizzato in USD per coerenza nei calcoli
+    let pnl; // Valore espresso nella valuta del conto (accountCurr)
     if (t.pnlReal !== null && t.pnlReal !== undefined) {
-      // Se P&L reale è in EUR, converti in USD per uniformare
       const realCurr = t.pnlRealCurrency || 'EUR';
-      if (realCurr === 'EUR' && currentExchangeRate?.rate) {
-        pnl = t.pnlReal * currentExchangeRate.rate; // EUR → USD
+      // Conversione SOLO se le valute sono diverse
+      if (realCurr === accountCurr) {
+        pnl = t.pnlReal; // Stessa valuta: usa direttamente
+      } else if (realCurr === 'EUR' && accountCurr === 'USD') {
+        pnl = t.pnlReal * rate; // EUR → USD
+      } else if (realCurr === 'USD' && accountCurr === 'EUR') {
+        pnl = t.pnlReal / rate; // USD → EUR
       } else {
-        pnl = t.pnlReal;
+        pnl = t.pnlReal; // Altre combinazioni: fallback
       }
     } else {
+      // P&L stimato: calcolato in USD dai prezzi degli strumenti (CME)
       const exitSpread = t.exitP1 - t.exitP2;
       const entrySpread = (t.realSpread !== null && t.realSpread !== undefined) ? t.realSpread : t.spread;
       const moveSpread = exitSpread - entrySpread;
-      pnl = (t.action === 'BUY' ? moveSpread : -moveSpread) * t.qty * t.pointPrice;
+      const pnlUsd = (t.action === 'BUY' ? moveSpread : -moveSpread) * t.qty * t.pointPrice;
+      // Converti USD → valuta del conto
+      if (accountCurr === 'USD') {
+        pnl = pnlUsd;
+      } else if (accountCurr === 'EUR') {
+        pnl = pnlUsd / rate;
+      } else {
+        pnl = pnlUsd; // Fallback per altre valute
+      }
     }
     return { ...t, _pnl: pnl, _date: new Date(t.updated || t.created || t.ts) };
   });
 
-  const cs = currencySymbol || '$';
-  const isUsd = cs === '$';
+  const cs = currencySymbol || '€';
+  // Mostra la valuta convertita affiancata SOLO se l'utente ha conto USD (vedere anche EUR)
+  // o conto EUR (vedere anche USD)
+  const showConversion = (accountCurr === 'USD' || accountCurr === 'EUR') && rate !== 1;
   
-  // Helper: formatta P&L con conversione EUR se applicabile
+  // Helper: formatta P&L nella valuta del conto + conversione affiancata
   const fmtPnl = (amt, big=false) => {
     const sign = amt >= 0 ? '+' : '';
     const abs = Math.abs(amt);
-    let usdStr = `${sign}${cs}${abs >= 1000 ? amt.toFixed(0) : amt.toFixed(2)}`;
-    if (isUsd) {
-      const eur = convertUsdToEur(amt);
-      if (eur !== null) {
-        const eurAbs = Math.abs(eur);
-        const eurStr = `${sign}€${eurAbs >= 1000 ? eur.toFixed(0) : eur.toFixed(2)}`;
-        if (big) {
-          return `${usdStr}<div style="font-size:14px;opacity:0.7;margin-top:2px;">≈ ${eurStr}</div>`;
-        }
-        return `${usdStr} <span style="font-size:0.7em;opacity:0.7;">(${eurStr})</span>`;
+    let primary = `${sign}${cs}${abs >= 1000 ? amt.toFixed(0) : amt.toFixed(2)}`;
+    if (showConversion) {
+      // Calcola conversione nell'altra valuta
+      let convAmt, convSymb;
+      if (accountCurr === 'EUR') {
+        convAmt = amt * rate; convSymb = '$';
+      } else { // USD
+        convAmt = amt / rate; convSymb = '€';
       }
+      const convAbs = Math.abs(convAmt);
+      const convStr = `${sign}${convSymb}${convAbs >= 1000 ? convAmt.toFixed(0) : convAmt.toFixed(2)}`;
+      if (big) {
+        return `${primary}<div style="font-size:14px;opacity:0.7;margin-top:2px;">≈ ${convStr}</div>`;
+      }
+      return `${primary} <span style="font-size:0.7em;opacity:0.7;">(${convStr})</span>`;
     }
-    return usdStr;
+    return primary;
   };
 
   // Statistiche generali
@@ -5917,7 +5940,7 @@ function renderEquityCurveSVG(cwp, fmtPnl) {
     return `<line x1="${pL}" y1="${y}" x2="${w-pR}" y2="${y}" stroke="#2a3839" stroke-width="0.5" stroke-dasharray="2 4" opacity="0.5"/>`;
   }).join('');
 
-  const cs = currencySymbol || '$';
+  const cs = currencySymbol || '€';
   const final = pts[pts.length-1].pnl;
 
   return `
@@ -5961,7 +5984,7 @@ function renderCategoryStats(cwp) {
   });
   const sorted = Object.entries(groups).sort((a,b) => Math.abs(b[1].pnl) - Math.abs(a[1].pnl));
   if (sorted.length === 0) return '';
-  const cs = currencySymbol || '$';
+  const cs = currencySymbol || '€';
 
   return `
     <div class="kpi" style="margin-bottom:12px;">
