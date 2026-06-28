@@ -1978,21 +1978,31 @@
     </div>
 
     <div class="card">
-      <div class="card-title">💱 Valuta</div>
+      <div class="card-title">💱 Valute</div>
+      
+      <div style="background:var(--bg);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:var(--text-dim);line-height:1.5;">
+        <div style="margin-bottom:6px;">
+          <strong style="color:var(--text);">📈 Prezzi degli strumenti:</strong> sempre in <strong style="color:var(--green);">USD ($)</strong>
+        </div>
+        <div style="font-size:11px;color:var(--text-faint);">
+          I futures CME/CBOT/CFE sono sempre quotati in dollari (entry, exit, stop loss, take profit, point price). Questo non cambia mai.
+        </div>
+      </div>
+      
       <p style="font-size: 13px; color: var(--text-dim); margin-bottom: 12px;">
-        Valuta usata per tutti i prezzi e calcoli nell'app.
+        <strong style="color:var(--text);">💰 Valuta del mio conto IBKR</strong> (per P&L globale, capitale e statistiche)
       </p>
       <div class="field">
         <select id="currencySelect">
+          <option value="EUR|€">EUR · Euro (€) — conto base Italia</option>
           <option value="USD|$">USD · Dollaro Americano ($)</option>
-          <option value="EUR|€">EUR · Euro (€)</option>
           <option value="GBP|£">GBP · Sterlina Inglese (£)</option>
           <option value="CHF|CHF">CHF · Franco Svizzero</option>
           <option value="JPY|¥">JPY · Yen Giapponese (¥)</option>
           <option value="AUD|A$">AUD · Dollaro Australiano (A$)</option>
           <option value="CAD|C$">CAD · Dollaro Canadese (C$)</option>
         </select>
-        <span class="hint">⚠️ La valuta cambia solo il simbolo, non converte i valori esistenti</span>
+        <span class="hint">Questa è la valuta in cui IBKR ti mostra l'equity del conto e converte i P&L</span>
       </div>
     </div>
 
@@ -2371,8 +2381,13 @@ spreadType.addEventListener('change', () => {
 let lastResult = null;
 let editingId = null; // se non-null, sto modificando un trade esistente
 let globalCapital = null; // capitale conto IB, salvato in settings
-let currencyCode = 'USD';
-let currencySymbol = '$';
+// 💱 SEPARAZIONE VALUTE:
+// - PRICE_SYMBOL/PRICE_CURRENCY: valuta dei PREZZI degli strumenti (CME futures = SEMPRE USD)
+// - currencyCode/currencySymbol: valuta del CONTO IBKR dell'utente (per P&L globale e statistiche)
+const PRICE_SYMBOL = '$';        // I prezzi futures CME sono sempre in USD
+const PRICE_CURRENCY = 'USD';
+let currencyCode = 'EUR';        // Default: conto IBKR in EUR (utente italiano)
+let currencySymbol = '€';
 const output = document.getElementById('output');
 const exitCard = document.getElementById('exitCard');
 const reminderCard = document.getElementById('reminderCard');
@@ -2418,17 +2433,15 @@ async function loadCurrency() {
       document.getElementById('currencySelect').value = stored;
     }
   } catch(e) {}
-  // Aggiorno tutte le label "($)" → "(simbolo)"
-  applyCurrencyToLabels();
+  // ⚠️ Non aggiorno più le label "($)" dei prezzi: i prezzi futures sono SEMPRE in USD
+  // applyCurrencyToLabels(); // DISABILITATO: i prezzi degli strumenti CME sono sempre quotati in USD
 }
 
 function applyCurrencyToLabels() {
-  // Tutti i label che contengono "($)" li sostituisco con il simbolo corrente
-  document.querySelectorAll('label, .hint, .card-title').forEach(el => {
-    if (el.textContent && el.textContent.includes('($)')) {
-      el.textContent = el.textContent.replace(/\(\$\)/g, `(${currencySymbol})`);
-    }
-  });
+  // ⚠️ FUNZIONE DEPRECATA: non modifichiamo più i simboli dei prezzi degli strumenti,
+  // perché i futures CME sono SEMPRE quotati in USD indipendentemente dalla valuta del conto utente.
+  // Mantengo la funzione per retrocompatibilità ma non fa più nulla.
+  return;
 }
 
 document.getElementById('currencySelect').addEventListener('change', async (e) => {
@@ -2439,17 +2452,15 @@ document.getElementById('currencySelect').addEventListener('change', async (e) =
   try {
     await setSetting('currency', val);
   } catch(err) {}
-  // Aggiorno UI
+  // Aggiorno UI (capitale conto e dashboard)
   updateCapitalUI();
-  // Aggiorno label dei form (sostituisco simbolo precedente con quello nuovo)
-  document.querySelectorAll('label, .hint, .card-title').forEach(el => {
-    if (el.textContent) {
-      el.textContent = el.textContent.replace(/\([\$€£¥]\)|\(CHF\)|\(A\$\)|\(C\$\)/g, `(${currencySymbol})`);
-    }
-  });
-  // Se c'è output attivo, ricalcolo per aggiornare simboli
+  // ⚠️ NON cambio più i simboli dei prezzi degli strumenti: sono sempre in USD
+  // Se c'è output attivo, ricalcolo per aggiornare il P&L
   if (lastResult) compute();
-  // Aggiorno anche la dashboard se aperta
+  // Aggiorno la dashboard se aperta
+  if (document.querySelector('[data-tab="dashboard"]')?.classList.contains('active')) {
+    renderDashboard();
+  }
   if (document.querySelector('[data-tab="reminders"]').classList.contains('active')) {
     renderReminders();
   }
@@ -2626,7 +2637,7 @@ function compute() {
       <div style="margin-top: 10px;">
         <span style="color: var(--text-faint);">Prezzo combo IB:</span> <strong class="mono">${sign}${spreadPrice.toFixed(4)}</strong>
         ${spreadPrice < 0 ? '<div style="color: var(--amber); font-size:11px; margin-top:4px;">⚠ Negativo: Leg2 vale più di Leg1. Normale.</div>' : ''}
-        <div style="color: var(--text-faint); font-size:11px; margin-top:4px;">Esposizione: <span class="mono" style="color:var(--text);">${currencySymbol}${(qty * pointPrice).toLocaleString()}</span> per punto</div>
+        <div style="color: var(--text-faint); font-size:11px; margin-top:4px;">Esposizione: <span class="mono" style="color:var(--text);">${PRICE_SYMBOL}${(qty * pointPrice).toLocaleString()}</span> per punto</div>
       </div>`;
   }
 
@@ -2661,19 +2672,19 @@ function compute() {
         <div class="leg">
           <div class="leg-label">Leg 1 (Buy)</div>
           <div class="leg-value">${leg1Label}</div>
-          ${!isNaN(p1) ? `<div style="margin-top:4px; color: var(--text-faint); font-family: 'JetBrains Mono', monospace; font-size: 11px;">${currencySymbol}${p1.toFixed(2)}</div>` : ''}
+          ${!isNaN(p1) ? `<div style="margin-top:4px; color: var(--text-faint); font-family: 'JetBrains Mono', monospace; font-size: 11px;">${PRICE_SYMBOL}${p1.toFixed(2)}</div>` : ''}
         </div>
         <div class="legs-op">−</div>
         <div class="leg">
           <div class="leg-label">Leg 2 (Sell)</div>
           <div class="leg-value">${leg2Label}</div>
-          ${!isNaN(p2) ? `<div style="margin-top:4px; color: var(--text-faint); font-family: 'JetBrains Mono', monospace; font-size: 11px;">${currencySymbol}${p2.toFixed(2)}</div>` : ''}
+          ${!isNaN(p2) ? `<div style="margin-top:4px; color: var(--text-faint); font-family: 'JetBrains Mono', monospace; font-size: 11px;">${PRICE_SYMBOL}${p2.toFixed(2)}</div>` : ''}
         </div>
       </div>
       <div class="decision-detail">
         <div><strong>Cosa significa:</strong></div>
-        <div>→ <span class="${action==='BUY'?'pos':'neg'}">${action==='BUY'?'LONG':'SHORT'}</span> ${buyLeg} ${!isNaN(buyPrice)?`<span class="mono">@ ${currencySymbol}${buyPrice.toFixed(2)}</span>`:''}</div>
-        <div>→ <span class="${action==='BUY'?'neg':'pos'}">${action==='BUY'?'SHORT':'LONG'}</span> ${sellLeg} ${!isNaN(sellPrice)?`<span class="mono">@ ${currencySymbol}${sellPrice.toFixed(2)}</span>`:''}</div>
+        <div>→ <span class="${action==='BUY'?'pos':'neg'}">${action==='BUY'?'LONG':'SHORT'}</span> ${buyLeg} ${!isNaN(buyPrice)?`<span class="mono">@ ${PRICE_SYMBOL}${buyPrice.toFixed(2)}</span>`:''}</div>
+        <div>→ <span class="${action==='BUY'?'neg':'pos'}">${action==='BUY'?'SHORT':'LONG'}</span> ${sellLeg} ${!isNaN(sellPrice)?`<span class="mono">@ ${PRICE_SYMBOL}${sellPrice.toFixed(2)}</span>`:''}</div>
         ${pricingExplain}
       </div>
       ${projection}
@@ -2895,7 +2906,7 @@ function buildProjection(action, entrySpread, qty, pointPrice, targetSpread, sto
       <div class="scenario ${pnlClass}">
         <div class="ico">🎯</div>
         <div class="scenario-label">Se Target</div>
-        <div class="scenario-pnl">${pnlSign}${currencySymbol}${Math.abs(pnl).toFixed(0)}</div>
+        <div class="scenario-pnl">${pnlSign}${PRICE_SYMBOL}${Math.abs(pnl).toFixed(0)}</div>
         <div class="scenario-detail">@ ${targetSpread.toFixed(2)} · mov. ${moveSign}${move.toFixed(2)}</div>
       </div>
     `;
@@ -2917,7 +2928,7 @@ function buildProjection(action, entrySpread, qty, pointPrice, targetSpread, sto
       <div class="scenario ${pnlClass}">
         <div class="ico">🛑</div>
         <div class="scenario-label">Se Stop</div>
-        <div class="scenario-pnl">${pnlSign}${currencySymbol}${Math.abs(pnl).toFixed(0)}</div>
+        <div class="scenario-pnl">${pnlSign}${PRICE_SYMBOL}${Math.abs(pnl).toFixed(0)}</div>
         <div class="scenario-detail">@ ${stopSpread.toFixed(2)} · mov. ${moveSign}${move.toFixed(2)}</div>
       </div>
     `;
@@ -2946,7 +2957,7 @@ function buildProjection(action, entrySpread, qty, pointPrice, targetSpread, sto
         <div class="rr-bar">
           <div>
             <div class="rr-label">Risk / Reward</div>
-            <div class="rr-hint">Rischi ${currencySymbol}${risk.toFixed(0)} per guadagnare ${currencySymbol}${reward.toFixed(0)}</div>
+            <div class="rr-hint">Rischi ${PRICE_SYMBOL}${risk.toFixed(0)} per guadagnare ${PRICE_SYMBOL}${reward.toFixed(0)}</div>
           </div>
           <div style="text-align:right;">
             <div class="rr-value ${rrClass}">1 : ${rr.toFixed(2)}</div>
@@ -2970,7 +2981,7 @@ function buildProjection(action, entrySpread, qty, pointPrice, targetSpread, sto
   return `
     <div class="projection-wrap">
       <div class="projection-title">💰 P&L Proiettato</div>
-      <div class="projection-sub">Quanto guadagni/perdi se chiudi a target o stop (con ${qty} contratto${qty>1?'i':''} × ${currencySymbol}${pointPrice}/punto)</div>
+      <div class="projection-sub">Quanto guadagni/perdi se chiudi a target o stop (con ${qty} contratto${qty>1?'i':''} × ${PRICE_SYMBOL}${pointPrice}/punto)</div>
       <div class="scenarios">
         ${targetHtml}
         ${stopHtml}
@@ -3040,8 +3051,8 @@ function buildMarginRisk(action, entrySpread, qty, pointPrice, stopSpread, capit
         stopVsMcAlert = `
           <div class="liquidation-alert critical">
             <strong>🚨 ATTENZIONE: il tuo Stop Loss è OLTRE la margin call!</strong><br>
-            Lo spread arriverebbe alla margin call (${currencySymbol}${mcSpreadPrice.toFixed(2)}) <strong>prima</strong> di toccare il tuo stop (${currencySymbol}${stopSpread.toFixed(2)}).<br>
-            Significa che <strong>IB ti chiuderebbe la posizione</strong> al prezzo di mercato, perdendo <strong>${currencySymbol}${lossAtMc.toFixed(0)}</strong>, prima che tu possa uscire al tuo stop.<br>
+            Lo spread arriverebbe alla margin call (${PRICE_SYMBOL}${mcSpreadPrice.toFixed(2)}) <strong>prima</strong> di toccare il tuo stop (${PRICE_SYMBOL}${stopSpread.toFixed(2)}).<br>
+            Significa che <strong>IB ti chiuderebbe la posizione</strong> al prezzo di mercato, perdendo <strong>${PRICE_SYMBOL}${lossAtMc.toFixed(0)}</strong>, prima che tu possa uscire al tuo stop.<br>
             <span style="display:block;margin-top:6px;">💡 Soluzioni: <strong>riduci i contratti</strong>, oppure <strong>avvicina lo stop</strong>, oppure <strong>aggiungi capitale</strong>.</span>
           </div>
         `;
@@ -3052,7 +3063,7 @@ function buildMarginRisk(action, entrySpread, qty, pointPrice, stopSpread, capit
         stopVsMcAlert = `
           <div class="liquidation-alert ok">
             <strong>✓ Stop Loss prima della margin call</strong><br>
-            Hai un cuscinetto di <strong>${safetyMargin.toFixed(2)} punti</strong> (${currencySymbol}${safetyDollars.toFixed(0)}) tra il tuo stop e la liquidazione forzata.
+            Hai un cuscinetto di <strong>${safetyMargin.toFixed(2)} punti</strong> (${PRICE_SYMBOL}${safetyDollars.toFixed(0)}) tra il tuo stop e la liquidazione forzata.
           </div>
         `;
       }
@@ -3061,7 +3072,7 @@ function buildMarginRisk(action, entrySpread, qty, pointPrice, stopSpread, capit
     stopVsMcAlert = `
       <div class="liquidation-alert warn">
         <strong>⚠ Stop Loss non impostato</strong><br>
-        Senza uno stop loss esplicito, sei esposto fino alla margin call. Imposta uno stop ben prima di ${currencySymbol}${mcSpreadPrice.toFixed(2)}.
+        Senza uno stop loss esplicito, sei esposto fino alla margin call. Imposta uno stop ben prima di ${PRICE_SYMBOL}${mcSpreadPrice.toFixed(2)}.
       </div>
     `;
   }
@@ -3077,7 +3088,7 @@ function buildMarginRisk(action, entrySpread, qty, pointPrice, stopSpread, capit
         riskPctAlert = `
           <div class="liquidation-alert warn">
             <strong>⚠ Rischio per trade superiore al ${riskPct}%</strong><br>
-            Se scatta lo stop perdi <strong>${currencySymbol}${stopLoss.toFixed(0)}</strong> = <strong>${stopLossPct.toFixed(1)}%</strong> del capitale.<br>
+            Se scatta lo stop perdi <strong>${PRICE_SYMBOL}${stopLoss.toFixed(0)}</strong> = <strong>${stopLossPct.toFixed(1)}%</strong> del capitale.<br>
             Riduci a ${Math.floor(qty * (riskPct / stopLossPct))} contratto/i per rispettare la regola del ${riskPct}%.
           </div>
         `;
@@ -3099,9 +3110,9 @@ function buildMarginRisk(action, entrySpread, qty, pointPrice, stopSpread, capit
         <div style="font-size:11px;color:var(--text-faint);">${riskMsg}</div>
       </div>
       <div class="risk-rows" style="margin-top:12px;">
-        <div class="pnl-row"><span class="label">Margine Initial totale</span><span class="val">${currencySymbol}${totalMarginInitial.toFixed(0)}</span></div>
-        <div class="pnl-row"><span class="label">Margine Maintenance${maintIsEstimated ? ' <span style="font-size:10px;color:var(--amber);">(stimato 85%)</span>' : ''}</span><span class="val">${currencySymbol}${totalMarginMaint.toFixed(0)}</span></div>
-        <div class="pnl-row"><span class="label">Cuscinetto disponibile</span><span class="val ${buffer > 0 ? 'pos' : 'neg'}">${currencySymbol}${buffer.toFixed(0)}</span></div>
+        <div class="pnl-row"><span class="label">Margine Initial totale</span><span class="val">${PRICE_SYMBOL}${totalMarginInitial.toFixed(0)}</span></div>
+        <div class="pnl-row"><span class="label">Margine Maintenance${maintIsEstimated ? ' <span style="font-size:10px;color:var(--amber);">(stimato 85%)</span>' : ''}</span><span class="val">${PRICE_SYMBOL}${totalMarginMaint.toFixed(0)}</span></div>
+        <div class="pnl-row"><span class="label">Cuscinetto disponibile</span><span class="val ${buffer > 0 ? 'pos' : 'neg'}">${PRICE_SYMBOL}${buffer.toFixed(0)}</span></div>
         <div class="pnl-row"><span class="label">Movimento max contro di te</span><span class="val">${maxAdverseMove.toFixed(2)} punti</span></div>
         <div class="pnl-row"><span class="label">Spread al prezzo di liquidazione</span><span class="val ${riskClass}">${mcSpreadPrice.toFixed(2)}</span></div>
       </div>
@@ -3210,21 +3221,21 @@ document.getElementById('calcTaxBtn').addEventListener('click', async () => {
   const tableRows = rows.slice(0, 20).map(t => `
     <tr>
       <td>${t.leg1.slice(0,15)}/${t.leg2.slice(0,15)} ${t.pnlSource === 'reale' ? '<span style="color:var(--green);font-size:10px;">💰</span>' : '<span style="color:var(--text-faint);font-size:10px;">~</span>'}</td>
-      <td class="num ${t.pnl >= 0 ? 'pos' : 'neg'}">${t.pnl >= 0 ? '+' : ''}${currencySymbol}${t.pnl.toFixed(0)}</td>
+      <td class="num ${t.pnl >= 0 ? 'pos' : 'neg'}">${t.pnl >= 0 ? '+' : ''}${PRICE_SYMBOL}${t.pnl.toFixed(0)}</td>
     </tr>
   `).join('');
 
   // Conversioni EUR per i totali principali
   const isUsd = (currencySymbol === '$' || !currencySymbol);
   const fmtDual = (amt) => {
-    if (!isUsd) return `${currencySymbol}${amt.toFixed(2)}`;
+    if (!isUsd) return `${PRICE_SYMBOL}${amt.toFixed(2)}`;
     const eur = convertUsdToEur(amt);
     if (eur === null) return `$${amt.toFixed(2)}`;
     return `$${amt.toFixed(2)} <span style="font-size:11px;opacity:0.7;">(€${eur.toFixed(2)})</span>`;
   };
   const fmtDualSigned = (amt) => {
     const sign = amt >= 0 ? '+' : '';
-    if (!isUsd) return `${sign}${currencySymbol}${amt.toFixed(2)}`;
+    if (!isUsd) return `${sign}${PRICE_SYMBOL}${amt.toFixed(2)}`;
     const eur = convertUsdToEur(amt);
     if (eur === null) return `${sign}$${amt.toFixed(2)}`;
     return `${sign}$${amt.toFixed(2)} <span style="font-size:11px;opacity:0.7;">(${sign}€${eur.toFixed(2)})</span>`;
@@ -3287,9 +3298,9 @@ document.getElementById('calcRollBtn').addEventListener('click', () => {
       <div class="pnl-row"><span class="label">Spread attuale</span><span class="val">${cur.toFixed(4)}</span></div>
       <div class="pnl-row"><span class="label">Spread nuovo (post-roll)</span><span class="val">${next.toFixed(4)}</span></div>
       <div class="pnl-row"><span class="label">Differenza prezzi</span><span class="val">${(next-cur >= 0 ? '+' : '')}${(next-cur).toFixed(4)}</span></div>
-      <div class="pnl-row"><span class="label">Commissioni totali</span><span class="val neg">-${currencySymbol}${com.toFixed(2)}</span></div>
-      <div class="pnl-row total"><span class="label">Se LONG (compri il combo)</span><span class="val ${rollLong<=0?'pos':'neg'}">${rollLong<=0?'+':'-'}${currencySymbol}${Math.abs(rollLong).toFixed(2)}</span></div>
-      <div class="pnl-row" style="padding-top:8px;"><span class="label">Se SHORT (vendi il combo)</span><span class="val ${rollShort<=0?'pos':'neg'}">${rollShort<=0?'+':'-'}${currencySymbol}${Math.abs(rollShort).toFixed(2)}</span></div>
+      <div class="pnl-row"><span class="label">Commissioni totali</span><span class="val neg">-${PRICE_SYMBOL}${com.toFixed(2)}</span></div>
+      <div class="pnl-row total"><span class="label">Se LONG (compri il combo)</span><span class="val ${rollLong<=0?'pos':'neg'}">${rollLong<=0?'+':'-'}${PRICE_SYMBOL}${Math.abs(rollLong).toFixed(2)}</span></div>
+      <div class="pnl-row" style="padding-top:8px;"><span class="label">Se SHORT (vendi il combo)</span><span class="val ${rollShort<=0?'pos':'neg'}">${rollShort<=0?'+':'-'}${PRICE_SYMBOL}${Math.abs(rollShort).toFixed(2)}</span></div>
     </div>
     <div class="callout" style="margin-top: 10px;">
       <strong>💡 Come leggerlo:</strong> "+" significa che il roll <strong>ti costa</strong> denaro (esci dalla posizione vecchia in perdita o entri in quella nuova a prezzo peggiore). "−" significa che il roll <strong>ti dà credito</strong>.
@@ -3327,7 +3338,7 @@ document.getElementById('calcBeBtn').addEventListener('click', () => {
       <div style="font-size: 13px; font-weight: 700; margin-bottom: 10px;">💰 Punto di Pareggio</div>
       <div class="pnl-row"><span class="label">Azione</span><span class="val">${action}</span></div>
       <div class="pnl-row"><span class="label">Spread entrata</span><span class="val">${entry.toFixed(4)}</span></div>
-      <div class="pnl-row"><span class="label">Commissioni totali (open + close)</span><span class="val neg">-${currencySymbol}${totalCom.toFixed(2)}</span></div>
+      <div class="pnl-row"><span class="label">Commissioni totali (open + close)</span><span class="val neg">-${PRICE_SYMBOL}${totalCom.toFixed(2)}</span></div>
       <div class="pnl-row"><span class="label">Movimento minimo richiesto</span><span class="val">${moveNeeded.toFixed(4)} punti</span></div>
       <div class="pnl-row total"><span class="label">📍 Break-Even</span><span class="val">${breakEven.toFixed(4)}</span></div>
       <div class="pnl-row" style="padding-top:8px;"><span class="label">Target per coprire 2× commissioni</span><span class="val pos">${target1to1.toFixed(4)}</span></div>
@@ -3425,7 +3436,7 @@ document.getElementById('runRiskBtn').addEventListener('click', async () => {
     } else {
       loss = totalStopLoss * s.mult;
       const pct = cap > 0 ? (loss / cap) * 100 : 0;
-      return `<div class="pnl-row"><span class="label">${s.name}</span><span class="val neg">-${currencySymbol}${loss.toFixed(0)} (${pct.toFixed(1)}%)</span></div>`;
+      return `<div class="pnl-row"><span class="label">${s.name}</span><span class="val neg">-${PRICE_SYMBOL}${loss.toFixed(0)} (${pct.toFixed(1)}%)</span></div>`;
     }
   }).join('');
 
@@ -3636,7 +3647,7 @@ document.getElementById('psCalcBtn').addEventListener('click', () => {
     const totalRisk = stopDollars * finalMax;
     const totalRiskPct = (totalRisk / capital) * 100;
     stopRiskRow = `
-      <div class="pnl-row"><span class="label">Perdita se scatta stop (${finalMax} contratti)</span><span class="val neg">-${currencySymbol}${totalRisk.toFixed(0)} (${totalRiskPct.toFixed(1)}%)</span></div>
+      <div class="pnl-row"><span class="label">Perdita se scatta stop (${finalMax} contratti)</span><span class="val neg">-${PRICE_SYMBOL}${totalRisk.toFixed(0)} (${totalRiskPct.toFixed(1)}%)</span></div>
     `;
   }
   
@@ -3651,7 +3662,7 @@ document.getElementById('psCalcBtn').addEventListener('click', () => {
         ${finalMax > 0 ? `limitato da: <strong style="color:var(--text);">${limitedBy}</strong>` : '⚠ Conto troppo piccolo per questo trade'}
       </div>
       <div class="risk-rows">
-        <div class="pnl-row"><span class="label">Margine totale impegnato</span><span class="val">${currencySymbol}${totalMarginUsed.toFixed(0)} (${marginUsedPct.toFixed(1)}%)</span></div>
+        <div class="pnl-row"><span class="label">Margine totale impegnato</span><span class="val">${PRICE_SYMBOL}${totalMarginUsed.toFixed(0)} (${marginUsedPct.toFixed(1)}%)</span></div>
         ${stopRiskRow}
         <div class="pnl-row"><span class="label">Max per regola margine (${marginPct}%)</span><span class="val">${maxByMargin}</span></div>
         ${maxByRisk !== null ? `<div class="pnl-row"><span class="label">Max per regola stop (${riskPct}%)</span><span class="val">${maxByRisk}</span></div>` : ''}
@@ -3659,7 +3670,7 @@ document.getElementById('psCalcBtn').addEventListener('click', () => {
       ${finalMax === 0 ? `
         <div class="liquidation-alert critical" style="margin-top:12px;">
           <strong>⚠ Conto insufficiente</strong><br>
-          Con questo capitale non puoi aprire nemmeno 1 contratto rispettando le regole. Servirebbero almeno ${currencySymbol}${Math.max(margin / (marginPct/100), (stopDollars || 0) / (riskPct/100)).toFixed(0)}.
+          Con questo capitale non puoi aprire nemmeno 1 contratto rispettando le regole. Servirebbero almeno ${PRICE_SYMBOL}${Math.max(margin / (marginPct/100), (stopDollars || 0) / (riskPct/100)).toFixed(0)}.
         </div>
       ` : ''}
     </div>
@@ -3765,9 +3776,9 @@ document.getElementById('calcPnlBtn').addEventListener('click', () => {
       <div class="pnl-row"><span class="label">Spread entrata</span><span class="val">${lastResult.spread.toFixed(4)}</span></div>
       <div class="pnl-row"><span class="label">Spread uscita</span><span class="val">${exitSpread.toFixed(4)}</span></div>
       <div class="pnl-row"><span class="label">Movimento</span><span class="val ${moveSpread>=0?'pos':'neg'}">${moveSpread>=0?'+':''}${moveSpread.toFixed(4)}</span></div>
-      <div class="pnl-row"><span class="label">P&L ${lastResult.leg1}</span><span class="val ${pnlLeg1>=0?'pos':'neg'}">${pnlLeg1>=0?'+':''}${currencySymbol}${pnlLeg1.toFixed(2)}</span></div>
-      <div class="pnl-row"><span class="label">P&L ${lastResult.leg2}</span><span class="val ${pnlLeg2>=0?'pos':'neg'}">${pnlLeg2>=0?'+':''}${currencySymbol}${pnlLeg2.toFixed(2)}</span></div>
-      <div class="pnl-row total"><span class="label">P&L TOTALE</span><span class="val ${pnlClass}">${pnl>=0?'+':''}${currencySymbol}${pnl.toFixed(2)}</span></div>
+      <div class="pnl-row"><span class="label">P&L ${lastResult.leg1}</span><span class="val ${pnlLeg1>=0?'pos':'neg'}">${pnlLeg1>=0?'+':''}${PRICE_SYMBOL}${pnlLeg1.toFixed(2)}</span></div>
+      <div class="pnl-row"><span class="label">P&L ${lastResult.leg2}</span><span class="val ${pnlLeg2>=0?'pos':'neg'}">${pnlLeg2>=0?'+':''}${PRICE_SYMBOL}${pnlLeg2.toFixed(2)}</span></div>
+      <div class="pnl-row total"><span class="label">P&L TOTALE</span><span class="val ${pnlClass}">${pnl>=0?'+':''}${PRICE_SYMBOL}${pnl.toFixed(2)}</span></div>
     </div>
   `;
   lastResult.exitP1 = e1; lastResult.exitP2 = e2; lastResult.exitSpread = exitSpread; lastResult.pnl = pnl;
@@ -4171,22 +4182,22 @@ async function renderRiskDashboard() {
         <div class="risk-grid">
           <div class="risk-stat">
             <div class="stat-label">Capitale</div>
-            <div class="stat-value">${currencySymbol}${cap.toLocaleString()}</div>
-            <div class="stat-sub">Disponibile: ${currencySymbol}${availableMargin.toLocaleString()}</div>
+            <div class="stat-value">${PRICE_SYMBOL}${cap.toLocaleString()}</div>
+            <div class="stat-sub">Disponibile: ${PRICE_SYMBOL}${availableMargin.toLocaleString()}</div>
           </div>
           <div class="risk-stat">
             <div class="stat-label">Margine Initial</div>
-            <div class="stat-value ${marginValClass}">${currencySymbol}${totalMargin.toFixed(0)}</div>
+            <div class="stat-value ${marginValClass}">${PRICE_SYMBOL}${totalMargin.toFixed(0)}</div>
             <div class="stat-sub">${marginPct.toFixed(1)}% del capitale</div>
           </div>
           <div class="risk-stat">
             <div class="stat-label">Margine Maintenance</div>
-            <div class="stat-value" style="color:var(--amber);">${currencySymbol}${totalMaintenance.toFixed(0)}</div>
+            <div class="stat-value" style="color:var(--amber);">${PRICE_SYMBOL}${totalMaintenance.toFixed(0)}</div>
             <div class="stat-sub">🚨 Soglia margin call</div>
           </div>
           <div class="risk-stat">
             <div class="stat-label">Cuscinetto fino a MC</div>
-            <div class="stat-value safe">${currencySymbol}${safetyBuffer.toFixed(0)}</div>
+            <div class="stat-value safe">${PRICE_SYMBOL}${safetyBuffer.toFixed(0)}</div>
             <div class="stat-sub">${safetyBufferPct.toFixed(1)}% del capitale</div>
           </div>
           <div class="risk-stat">
@@ -4196,7 +4207,7 @@ async function renderRiskDashboard() {
           </div>
           <div class="risk-stat">
             <div class="stat-label">Perdita max (stop)</div>
-            <div class="stat-value ${lossValClass}">${currencySymbol}${totalMaxLoss.toFixed(0)}</div>
+            <div class="stat-value ${lossValClass}">${PRICE_SYMBOL}${totalMaxLoss.toFixed(0)}</div>
             <div class="stat-sub">${maxLossPct.toFixed(1)}% se tutti stop colpiti</div>
           </div>
         </div>
@@ -4319,7 +4330,7 @@ async function renderReminders() {
       const pnl = (r.action === 'BUY' ? moveSpread : -moveSpread) * r.qty * r.pointPrice;
       const eurAmount = (currencySymbol === '$' || !currencySymbol) ? convertUsdToEur(pnl) : null;
       const eurBadge = eurAmount !== null ? ` <span style="font-size:11px;opacity:0.7;">≈ ${pnl>=0?'+':''}€${eurAmount.toFixed(2)}</span>` : '';
-      pnlBadge = `<div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;color:${pnl>=0?'var(--green)':'var(--red)'};margin-top:3px;">P&L stim: ${pnl>=0?'+':''}${currencySymbol}${pnl.toFixed(0)}${eurBadge} <span style="color:var(--text-faint);font-size:10px;font-weight:400;">· tocca per inserire reale</span></div>`;
+      pnlBadge = `<div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;color:${pnl>=0?'var(--green)':'var(--red)'};margin-top:3px;">P&L stim: ${pnl>=0?'+':''}${PRICE_SYMBOL}${pnl.toFixed(0)}${eurBadge} <span style="color:var(--text-faint);font-size:10px;font-weight:400;">· tocca per inserire reale</span></div>`;
     } else if (r.status === 'closed') {
       pnlBadge = `<div style="font-size:11px;color:var(--amber);margin-top:3px;">⚠ P&L non inserito · tocca per aggiungerlo</div>`;
     }
@@ -4340,7 +4351,7 @@ async function renderReminders() {
     let marginInfo = '';
     if (r.spanMargin && status === 'open') {
       const tot = r.spanMargin * r.qty;
-      marginInfo = `<div style="font-size:11px;color:var(--text-faint);font-family:'JetBrains Mono',monospace;margin-top:3px;">Margine: ${currencySymbol}${tot.toFixed(0)}</div>`;
+      marginInfo = `<div style="font-size:11px;color:var(--text-faint);font-family:'JetBrains Mono',monospace;margin-top:3px;">Margine: ${PRICE_SYMBOL}${tot.toFixed(0)}</div>`;
     }
     // Per trade aperti: pulsante per modificare i prezzi reali di ingresso
     let editEntryBtn = '';
@@ -4502,7 +4513,7 @@ function previewQuickOpenSpread() {
     const isFavorable = t.action === 'BUY' ? diff < 0 : diff > 0;
     const slipColor = Math.abs(diffMoney) < 1 ? 'var(--text-faint)' : (isFavorable ? 'var(--green)' : 'var(--red)');
     const slipLabel = isFavorable ? 'favorevole' : 'sfavorevole';
-    diffBlock = `<div style="font-size:11px;color:${slipColor};margin-top:6px;">Δ vs pianificato: ${diff >= 0 ? '+' : ''}${diff.toFixed(4)} <span style="color:var(--text-faint);">(slippage ${slipLabel}: ${diffMoney >= 0 ? '+' : ''}${currencySymbol}${diffMoney.toFixed(2)})</span></div>`;
+    diffBlock = `<div style="font-size:11px;color:${slipColor};margin-top:6px;">Δ vs pianificato: ${diff >= 0 ? '+' : ''}${diff.toFixed(4)} <span style="color:var(--text-faint);">(slippage ${slipLabel}: ${diffMoney >= 0 ? '+' : ''}${PRICE_SYMBOL}${diffMoney.toFixed(2)})</span></div>`;
   }
   el.innerHTML = `
     <div style="padding:10px;background:var(--bg);border:1px solid var(--blue);border-radius:8px;">
@@ -4555,7 +4566,7 @@ function attachQuickOpenHandlers() {
     const slipMoney = slippage * t.qty * t.pointPrice;
     const isFavorable = t.action === 'BUY' ? slippage < 0 : slippage > 0;
     const sign = slipMoney >= 0 ? '+' : '';
-    showToast(`✅ Aperto · slippage ${isFavorable ? '😊' : '😬'} ${sign}${currencySymbol}${slipMoney.toFixed(2)}`);
+    showToast(`✅ Aperto · slippage ${isFavorable ? '😊' : '😬'} ${sign}${PRICE_SYMBOL}${slipMoney.toFixed(2)}`);
   });
   // Tap fuori dalla box → chiudi
   document.getElementById('quickOpenModal').addEventListener('click', (e) => {
@@ -4642,7 +4653,7 @@ function previewQuickClosePnl() {
       <div style="padding:10px;background:var(--bg);border:1px solid ${color};border-radius:8px;">
         <div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.1em;font-weight:700;">P&L Stimato (da prezzi · entry ${entrySource})</div>
         <div style="font-size:22px;font-weight:800;color:${color};font-family:'JetBrains Mono',monospace;margin-top:4px;">
-          ${estPnl >= 0 ? '+' : ''}${currencySymbol}${estPnl.toFixed(2)}
+          ${estPnl >= 0 ? '+' : ''}${PRICE_SYMBOL}${estPnl.toFixed(2)}
         </div>
         ${estEurStr}
         <div style="font-size:11px;color:var(--text-faint);margin-top:4px;">Entry: ${entrySpread.toFixed(4)} → Exit: ${exitSpread.toFixed(4)} (mov. ${moveSpread >= 0 ? '+' : ''}${moveSpread.toFixed(4)})</div>
@@ -4819,7 +4830,7 @@ function openDetailsModal(r) {
     pricingExplain = `
       <div style="margin-top: 10px;">
         <span style="color: var(--text-faint);">Prezzo combo IB:</span> <strong class="mono">${sign}${spreadPrice.toFixed(4)}</strong>
-        <div style="color: var(--text-faint); font-size:11px; margin-top:4px;">Esposizione: <span class="mono" style="color:var(--text);">${currencySymbol}${(qty * pointPrice).toLocaleString()}</span> per punto</div>
+        <div style="color: var(--text-faint); font-size:11px; margin-top:4px;">Esposizione: <span class="mono" style="color:var(--text);">${PRICE_SYMBOL}${(qty * pointPrice).toLocaleString()}</span> per punto</div>
       </div>`;
   }
 
@@ -4853,9 +4864,9 @@ function openDetailsModal(r) {
         <div class="pnl-row"><span class="label">Spread entrata</span><span class="val">${spreadPrice.toFixed(4)}</span></div>
         <div class="pnl-row"><span class="label">Spread uscita</span><span class="val">${exitSpread.toFixed(4)}</span></div>
         <div class="pnl-row"><span class="label">Movimento</span><span class="val ${moveSpread>=0?'pos':'neg'}">${moveSpread>=0?'+':''}${moveSpread.toFixed(4)}</span></div>
-        <div class="pnl-row"><span class="label">P&L ${leg1Label}</span><span class="val ${pnlLeg1>=0?'pos':'neg'}">${pnlLeg1>=0?'+':''}${currencySymbol}${pnlLeg1.toFixed(2)}</span></div>
-        <div class="pnl-row"><span class="label">P&L ${leg2Label}</span><span class="val ${pnlLeg2>=0?'pos':'neg'}">${pnlLeg2>=0?'+':''}${currencySymbol}${pnlLeg2.toFixed(2)}</span></div>
-        <div class="pnl-row total"><span class="label">P&L TOTALE</span><span class="val ${pnlClass}">${pnl>=0?'+':''}${currencySymbol}${pnl.toFixed(2)}</span></div>
+        <div class="pnl-row"><span class="label">P&L ${leg1Label}</span><span class="val ${pnlLeg1>=0?'pos':'neg'}">${pnlLeg1>=0?'+':''}${PRICE_SYMBOL}${pnlLeg1.toFixed(2)}</span></div>
+        <div class="pnl-row"><span class="label">P&L ${leg2Label}</span><span class="val ${pnlLeg2>=0?'pos':'neg'}">${pnlLeg2>=0?'+':''}${PRICE_SYMBOL}${pnlLeg2.toFixed(2)}</span></div>
+        <div class="pnl-row total"><span class="label">P&L TOTALE</span><span class="val ${pnlClass}">${pnl>=0?'+':''}${PRICE_SYMBOL}${pnl.toFixed(2)}</span></div>
       </div>
     `;
   }
@@ -4889,19 +4900,19 @@ function openDetailsModal(r) {
         <div class="leg">
           <div class="leg-label">Leg 1 (Buy)</div>
           <div class="leg-value">${leg1Label}</div>
-          ${p1 !== null && p1 !== undefined ? `<div style="margin-top:4px; color: var(--text-faint); font-family: 'JetBrains Mono', monospace; font-size: 11px;">${currencySymbol}${p1.toFixed(2)}</div>` : ''}
+          ${p1 !== null && p1 !== undefined ? `<div style="margin-top:4px; color: var(--text-faint); font-family: 'JetBrains Mono', monospace; font-size: 11px;">${PRICE_SYMBOL}${p1.toFixed(2)}</div>` : ''}
         </div>
         <div class="legs-op">−</div>
         <div class="leg">
           <div class="leg-label">Leg 2 (Sell)</div>
           <div class="leg-value">${leg2Label}</div>
-          ${p2 !== null && p2 !== undefined ? `<div style="margin-top:4px; color: var(--text-faint); font-family: 'JetBrains Mono', monospace; font-size: 11px;">${currencySymbol}${p2.toFixed(2)}</div>` : ''}
+          ${p2 !== null && p2 !== undefined ? `<div style="margin-top:4px; color: var(--text-faint); font-family: 'JetBrains Mono', monospace; font-size: 11px;">${PRICE_SYMBOL}${p2.toFixed(2)}</div>` : ''}
         </div>
       </div>
       <div class="decision-detail">
         <div><strong>Cosa significa:</strong></div>
-        <div>→ <span class="${action==='BUY'?'pos':'neg'}">${action==='BUY'?'LONG':'SHORT'}</span> ${buyLeg} ${buyPrice!==null&&buyPrice!==undefined?`<span class="mono">@ ${currencySymbol}${buyPrice.toFixed(2)}</span>`:''}</div>
-        <div>→ <span class="${action==='BUY'?'neg':'pos'}">${action==='BUY'?'SHORT':'LONG'}</span> ${sellLeg} ${sellPrice!==null&&sellPrice!==undefined?`<span class="mono">@ ${currencySymbol}${sellPrice.toFixed(2)}</span>`:''}</div>
+        <div>→ <span class="${action==='BUY'?'pos':'neg'}">${action==='BUY'?'LONG':'SHORT'}</span> ${buyLeg} ${buyPrice!==null&&buyPrice!==undefined?`<span class="mono">@ ${PRICE_SYMBOL}${buyPrice.toFixed(2)}</span>`:''}</div>
+        <div>→ <span class="${action==='BUY'?'neg':'pos'}">${action==='BUY'?'SHORT':'LONG'}</span> ${sellLeg} ${sellPrice!==null&&sellPrice!==undefined?`<span class="mono">@ ${PRICE_SYMBOL}${sellPrice.toFixed(2)}</span>`:''}</div>
         ${pricingExplain}
       </div>
       ${daysHtml}
@@ -5021,14 +5032,14 @@ function downloadICS(r) {
     const reward = targetMove * lossPerPoint;
     const risk = stopMove * lossPerPoint;
     const rr = risk > 0 ? (reward / risk).toFixed(2) : 'N/A';
-    projection = `Guadagno target: +${currencySymbol}${reward.toFixed(0)} | Perdita stop: -${currencySymbol}${Math.abs(risk).toFixed(0)} | R/R: ${rr}`;
+    projection = `Guadagno target: +${PRICE_SYMBOL}${reward.toFixed(0)} | Perdita stop: -${PRICE_SYMBOL}${Math.abs(risk).toFixed(0)} | R/R: ${rr}`;
   }
   
   // Margine info
   let marginInfo = '';
   if (r.spanMargin) {
-    marginInfo = `Margine Iniziale: ${currencySymbol}${(r.spanMargin * r.qty).toFixed(0)}`;
-    if (r.maintenanceMargin) marginInfo += ` | Mantenimento: ${currencySymbol}${(r.maintenanceMargin * r.qty).toFixed(0)}`;
+    marginInfo = `Margine Iniziale: ${PRICE_SYMBOL}${(r.spanMargin * r.qty).toFixed(0)}`;
+    if (r.maintenanceMargin) marginInfo += ` | Mantenimento: ${PRICE_SYMBOL}${(r.maintenanceMargin * r.qty).toFixed(0)}`;
   }
   
   // Costruisco le sigle di IB
