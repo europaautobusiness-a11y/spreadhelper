@@ -407,6 +407,129 @@
     text-align: right;
   }
 
+  /* ============================================================
+     TP/SL RECALCULATION PANEL - Modale apertura trade
+     ============================================================ */
+  .tpsl-panel {
+    background: var(--bg);
+    border-radius: 10px;
+    padding: 12px;
+    border: 1px solid var(--border);
+  }
+  .tpsl-header {
+    font-size: 11px;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 700;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .tpsl-slippage-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .tpsl-slippage-badge.pos { background: rgba(81,207,102,0.15); color: var(--green); }
+  .tpsl-slippage-badge.neg { background: rgba(255,107,107,0.15); color: var(--red); }
+  .tpsl-slippage-badge.neutral { background: var(--bg-elev); color: var(--text-dim); }
+  
+  .tpsl-block {
+    padding: 10px;
+    background: var(--bg-elev);
+    border-radius: 8px;
+    margin-bottom: 10px;
+    border-left: 3px solid transparent;
+  }
+  .tpsl-block.tp { border-left-color: var(--green); }
+  .tpsl-block.sl { border-left-color: var(--red); }
+  .tpsl-block-title {
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .tpsl-block-title .amt {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+  }
+  .tpsl-block-title .amt.pos { color: var(--green); }
+  .tpsl-block-title .amt.neg { color: var(--red); }
+  
+  .tpsl-orders-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    margin-top: 6px;
+    padding: 3px;
+    background: var(--bg);
+    border-radius: 6px;
+  }
+  .tpsl-tab-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    padding: 5px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .tpsl-tab-btn.active {
+    background: var(--bg-elev);
+    color: var(--text);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+  
+  .tpsl-order-table {
+    margin-top: 8px;
+    font-size: 11px;
+  }
+  .tpsl-order-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 8px;
+    padding: 4px 0;
+    border-bottom: 1px dashed var(--border);
+    align-items: center;
+  }
+  .tpsl-order-row:last-child { border-bottom: none; }
+  .tpsl-order-action {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 5px;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .tpsl-order-action.buy { background: rgba(33,150,243,0.2); color: var(--blue); }
+  .tpsl-order-action.sell { background: rgba(255,193,7,0.2); color: var(--amber); }
+  .tpsl-order-desc { color: var(--text-dim); }
+  .tpsl-order-price {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    color: var(--text);
+  }
+  
+  .tpsl-stretch {
+    margin-top: 10px;
+    padding: 8px 10px;
+    background: linear-gradient(135deg, rgba(33,150,243,0.08), transparent);
+    border: 1px dashed rgba(33,150,243,0.3);
+    border-radius: 6px;
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+  .tpsl-stretch strong { color: var(--blue); }
+
   /* Filtri trade (sub-tabs all'interno della tab Trade) */
   .trade-filters {
     display: flex; gap: 6px; margin-bottom: 14px; overflow-x: auto;
@@ -2137,6 +2260,7 @@
       </div>
     </div>
     <div id="quickOpenSpreadPreview" style="margin: 10px 0; text-align: center; font-size: 14px;"></div>
+    <div id="quickOpenTPSLPanel" style="margin: 12px 0;"></div>
     <div class="btn-row" style="margin-top: 14px;">
       <button class="btn" id="quickOpenConfirm">✓ Apri con prezzi reali</button>
       <button class="btn secondary" id="quickOpenSkip">Apri senza prezzi</button>
@@ -4522,8 +4646,10 @@ function previewQuickOpenSpread() {
   const e1 = parseFloat(document.getElementById('quickOpenPrice1').value);
   const e2 = parseFloat(document.getElementById('quickOpenPrice2').value);
   const el = document.getElementById('quickOpenSpreadPreview');
+  const panel = document.getElementById('quickOpenTPSLPanel');
   if (isNaN(e1) || isNaN(e2)) {
     el.innerHTML = '';
+    if (panel) panel.innerHTML = '';
     return;
   }
   const realSpread = e1 - e2;
@@ -4531,7 +4657,6 @@ function previewQuickOpenSpread() {
   let diffBlock = '';
   if (plannedSpread !== null && plannedSpread !== undefined) {
     const diff = realSpread - plannedSpread;
-    const diffPoints = diff;
     const diffMoney = diff * t.qty * t.pointPrice;
     // Slippage: per BUY, spread reale più alto è sfavorevole; per SELL il contrario
     const isFavorable = t.action === 'BUY' ? diff < 0 : diff > 0;
@@ -4548,6 +4673,200 @@ function previewQuickOpenSpread() {
       ${diffBlock}
     </div>
   `;
+  // Render pannello TP/SL ricalcolati
+  if (panel) {
+    panel.innerHTML = renderTPSLPanel(t, e1, e2, realSpread);
+    attachTPSLTabHandlers();
+  }
+}
+
+function renderTPSLPanel(t, e1, e2, realSpread) {
+  const hasTP = t.tpSpread !== null && t.tpSpread !== undefined;
+  const hasSL = t.stopSpread !== null && t.stopSpread !== undefined;
+  if (!hasTP && !hasSL) return '';
+
+  const plannedSpread = t.spread;
+  if (plannedSpread === null || plannedSpread === undefined) return '';
+  
+  // Calcola shift dovuto allo slippage
+  const shift = realSpread - plannedSpread;
+  const cs = currencySymbol || '€';
+  const rate = currentExchangeRate?.rate || 1.14;
+  
+  // Formatta importo con conversione USD
+  const fmtEurUsd = (eurAmt) => {
+    const primary = `${cs}${eurAmt.toFixed(2)}`;
+    const usdAmt = (currencyCode === 'EUR') ? eurAmt * rate : eurAmt;
+    if (currencyCode === 'EUR') {
+      return `${primary} <span style="color:var(--text-faint);font-size:0.85em;">≈ $${usdAmt.toFixed(2)}</span>`;
+    }
+    return primary;
+  };
+
+  // TAKE PROFIT ricalcolato
+  let tpBlock = '';
+  if (hasTP) {
+    const tpMove = t.tpSpread - plannedSpread; // movimento originale pianificato
+    const newTpSpread = realSpread + tpMove;    // nuovo TP mantenendo lo stesso movimento
+    // Profitto atteso (assumo t.spanMargin e pointPrice siano in valuta conto)
+    const tpProfit = Math.abs(tpMove) * t.qty * t.pointPrice;
+    
+    // Calcola prezzi per le gambe: obiettivo è che newTpSpread = leg1_price - leg2_price
+    // Approccio semplificato: assumo entrambe le gambe si muovono simmetricamente rispetto ai prezzi entry
+    // In BUY (long spread), voglio spread cresca → vendo near a leg1_tp, compro far a leg2_tp
+    //   leg1_tp = e1 + tpMove/2  (near sale)
+    //   leg2_tp = e2 - tpMove/2  (far scende)  
+    // In SELL (short spread), voglio spread scenda → opposto
+    const half = tpMove / 2;
+    const leg1_tp = e1 + half;
+    const leg2_tp = e2 - half;
+    
+    // Determina azioni di uscita in base a t.action
+    const closeAction1 = t.action === 'BUY' ? 'SELL' : 'BUY';
+    const closeAction2 = t.action === 'BUY' ? 'BUY' : 'SELL';
+    const leg1Name = (t.leg1 || 'Leg 1').split(/\s+/).slice(0, 3).join(' ');
+    const leg2Name = (t.leg2 || 'Leg 2').split(/\s+/).slice(0, 3).join(' ');
+    
+    // Stretch: +20% del movimento originale
+    const stretchMove = tpMove * 1.20;
+    const stretchTpSpread = realSpread + stretchMove;
+    const stretchProfit = Math.abs(stretchMove) * t.qty * t.pointPrice;
+    const stretchLeg1 = e1 + stretchMove/2;
+    const stretchLeg2 = e2 - stretchMove/2;
+    const extraProfit = stretchProfit - tpProfit;
+
+    tpBlock = `
+      <div class="tpsl-block tp">
+        <div class="tpsl-block-title">
+          <span>🎯 Take Profit ricalcolato</span>
+          <span class="amt pos">+${fmtEurUsd(tpProfit)}</span>
+        </div>
+        <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px;">
+          Spread target: <strong style="font-family:monospace;color:var(--text);">${newTpSpread.toFixed(4)}</strong>
+          <span style="color:var(--text-faint);">(era ${t.tpSpread.toFixed(4)} pianificato)</span> · movimento ${tpMove >= 0 ? '+' : ''}${tpMove.toFixed(4)}
+        </div>
+        
+        <div class="tpsl-orders-tabs" data-target="tp">
+          <button class="tpsl-tab-btn active" data-mode="uds">Spread nativo (UDS)</button>
+          <button class="tpsl-tab-btn" data-mode="legs">Gambe separate</button>
+        </div>
+        
+        <div class="tpsl-order-table" data-mode-content="tp-uds">
+          <div class="tpsl-order-row">
+            <span class="tpsl-order-action ${t.action === 'BUY' ? 'sell' : 'buy'}">${t.action === 'BUY' ? 'SELL' : 'BUY'}</span>
+            <span class="tpsl-order-desc">Spread ${t.leg1?.split(/\s+/)[0] || ''} calendar</span>
+            <span class="tpsl-order-price">LIMIT ${newTpSpread.toFixed(4)}</span>
+          </div>
+        </div>
+        <div class="tpsl-order-table" data-mode-content="tp-legs" style="display:none;">
+          <div class="tpsl-order-row">
+            <span class="tpsl-order-action ${closeAction1.toLowerCase()}">${closeAction1}</span>
+            <span class="tpsl-order-desc">${leg1Name}</span>
+            <span class="tpsl-order-price">LIMIT ${leg1_tp.toFixed(4)}</span>
+          </div>
+          <div class="tpsl-order-row">
+            <span class="tpsl-order-action ${closeAction2.toLowerCase()}">${closeAction2}</span>
+            <span class="tpsl-order-desc">${leg2Name}</span>
+            <span class="tpsl-order-price">LIMIT ${leg2_tp.toFixed(4)}</span>
+          </div>
+        </div>
+        
+        <div class="tpsl-stretch">
+          💡 <strong>Prezzo "stretch"</strong>: alza il TP a <strong style="font-family:monospace;">${stretchTpSpread.toFixed(4)}</strong> 
+          (leg1: ${stretchLeg1.toFixed(4)}, leg2: ${stretchLeg2.toFixed(4)}) 
+          per profitto atteso <strong style="color:var(--green);">+${fmtEurUsd(stretchProfit)}</strong> 
+          (+${fmtEurUsd(extraProfit)} extra vs base). 
+          <span style="color:var(--amber);">Probabilità di fill leggermente più bassa.</span>
+        </div>
+      </div>
+    `;
+  }
+
+  // STOP LOSS ricalcolato
+  let slBlock = '';
+  if (hasSL) {
+    const slMove = t.stopSpread - plannedSpread;
+    const newSlSpread = realSpread + slMove;
+    const slLoss = Math.abs(slMove) * t.qty * t.pointPrice;
+    const half = slMove / 2;
+    const leg1_sl = e1 + half;
+    const leg2_sl = e2 - half;
+    
+    const closeAction1 = t.action === 'BUY' ? 'SELL' : 'BUY';
+    const closeAction2 = t.action === 'BUY' ? 'BUY' : 'SELL';
+    const leg1Name = (t.leg1 || 'Leg 1').split(/\s+/).slice(0, 3).join(' ');
+    const leg2Name = (t.leg2 || 'Leg 2').split(/\s+/).slice(0, 3).join(' ');
+
+    slBlock = `
+      <div class="tpsl-block sl">
+        <div class="tpsl-block-title">
+          <span>🛑 Stop Loss ricalcolato</span>
+          <span class="amt neg">-${fmtEurUsd(slLoss)}</span>
+        </div>
+        <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px;">
+          Spread trigger: <strong style="font-family:monospace;color:var(--text);">${newSlSpread.toFixed(4)}</strong>
+          <span style="color:var(--text-faint);">(era ${t.stopSpread.toFixed(4)} pianificato)</span> · movimento ${slMove >= 0 ? '+' : ''}${slMove.toFixed(4)}
+        </div>
+        
+        <div class="tpsl-orders-tabs" data-target="sl">
+          <button class="tpsl-tab-btn active" data-mode="uds">Spread nativo (UDS)</button>
+          <button class="tpsl-tab-btn" data-mode="legs">Gambe separate</button>
+        </div>
+        
+        <div class="tpsl-order-table" data-mode-content="sl-uds">
+          <div class="tpsl-order-row">
+            <span class="tpsl-order-action ${t.action === 'BUY' ? 'sell' : 'buy'}">${t.action === 'BUY' ? 'SELL' : 'BUY'}</span>
+            <span class="tpsl-order-desc">Spread ${t.leg1?.split(/\s+/)[0] || ''} calendar</span>
+            <span class="tpsl-order-price">STOP ${newSlSpread.toFixed(4)}</span>
+          </div>
+        </div>
+        <div class="tpsl-order-table" data-mode-content="sl-legs" style="display:none;">
+          <div class="tpsl-order-row">
+            <span class="tpsl-order-action ${closeAction1.toLowerCase()}">${closeAction1}</span>
+            <span class="tpsl-order-desc">${leg1Name}</span>
+            <span class="tpsl-order-price">STOP ${leg1_sl.toFixed(4)}</span>
+          </div>
+          <div class="tpsl-order-row">
+            <span class="tpsl-order-action ${closeAction2.toLowerCase()}">${closeAction2}</span>
+            <span class="tpsl-order-desc">${leg2Name}</span>
+            <span class="tpsl-order-price">STOP ${leg2_sl.toFixed(4)}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="tpsl-panel">
+      <div class="tpsl-header">
+        🎯 Ordini TP/SL ricalcolati sui prezzi reali
+      </div>
+      ${tpBlock}
+      ${slBlock}
+      <div style="font-size:10px;color:var(--text-faint);margin-top:6px;line-height:1.5;text-align:center;font-style:italic;">
+        📋 Copia questi prezzi in TWS quando piazzi gli ordini limite/stop
+      </div>
+    </div>
+  `;
+}
+
+function attachTPSLTabHandlers() {
+  document.querySelectorAll('.tpsl-orders-tabs').forEach(tabs => {
+    const target = tabs.dataset.target; // 'tp' o 'sl'
+    tabs.querySelectorAll('.tpsl-tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        tabs.querySelectorAll('.tpsl-tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const mode = btn.dataset.mode; // 'uds' o 'legs'
+        // Mostra la tabella corretta
+        document.querySelectorAll(`[data-mode-content^="${target}-"]`).forEach(el => {
+          el.style.display = 'none';
+        });
+        const activeEl = document.querySelector(`[data-mode-content="${target}-${mode}"]`);
+        if (activeEl) activeEl.style.display = '';
+      });
+    });
+  });
 }
 
 // Inizializzo handler quick open una volta sola
