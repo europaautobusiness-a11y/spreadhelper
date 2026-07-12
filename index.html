@@ -1527,7 +1527,7 @@
       <div class="card-title">⚠️ Margine &amp; Rischio (per questo trade)</div>
       <p style="font-size: 12px; color: var(--text-dim); margin-bottom: 12px;">
         <span id="capitalRef">Capitale impostato: — </span><br>
-        Inserisci il margine SPAN che TWS ti mostra prima dell'ordine.
+        Inserisci il margine SPAN che TWS ti mostra prima dell'ordine (nella <strong>valuta del tuo conto IBKR</strong>).
       </p>
       <div class="row">
         <div class="field">
@@ -2020,8 +2020,9 @@
       </div>
       <div id="capitalEditForm" style="display:none; margin-top: 12px;">
         <div class="field">
-          <label>Capitale ($)</label>
+          <label>Capitale <span id="capitalCurrencyLabel">(€)</span></label>
           <input type="number" id="globalCapitalInput" step="100" inputmode="decimal" placeholder="10000">
+          <span class="hint">Inserisci il valore nella valuta del tuo conto IBKR (modifica in 💱 Valute sopra)</span>
         </div>
         <div class="btn-row" style="margin-top: 10px;">
           <button class="btn" id="saveCapitalBtn">Salva</button>
@@ -2482,6 +2483,9 @@ document.getElementById('editCapitalBtn').addEventListener('click', () => {
   document.getElementById('capitalDisplay').style.display = 'none';
   document.getElementById('capitalEditForm').style.display = 'block';
   document.getElementById('globalCapitalInput').value = globalCapital || '';
+  // Aggiorna label valuta in base alla valuta del conto utente
+  const lbl = document.getElementById('capitalCurrencyLabel');
+  if (lbl) lbl.textContent = `(${currencySymbol || '€'})`;
   document.getElementById('globalCapitalInput').focus();
 });
 
@@ -3110,9 +3114,9 @@ function buildMarginRisk(action, entrySpread, qty, pointPrice, stopSpread, capit
         <div style="font-size:11px;color:var(--text-faint);">${riskMsg}</div>
       </div>
       <div class="risk-rows" style="margin-top:12px;">
-        <div class="pnl-row"><span class="label">Margine Initial totale</span><span class="val">${PRICE_SYMBOL}${totalMarginInitial.toFixed(0)}</span></div>
-        <div class="pnl-row"><span class="label">Margine Maintenance${maintIsEstimated ? ' <span style="font-size:10px;color:var(--amber);">(stimato 85%)</span>' : ''}</span><span class="val">${PRICE_SYMBOL}${totalMarginMaint.toFixed(0)}</span></div>
-        <div class="pnl-row"><span class="label">Cuscinetto disponibile</span><span class="val ${buffer > 0 ? 'pos' : 'neg'}">${PRICE_SYMBOL}${buffer.toFixed(0)}</span></div>
+        <div class="pnl-row"><span class="label">Margine Initial totale</span><span class="val">${currencySymbol}${totalMarginInitial.toFixed(0)}</span></div>
+        <div class="pnl-row"><span class="label">Margine Maintenance${maintIsEstimated ? ' <span style="font-size:10px;color:var(--amber);">(stimato 85%)</span>' : ''}</span><span class="val">${currencySymbol}${totalMarginMaint.toFixed(0)}</span></div>
+        <div class="pnl-row"><span class="label">Cuscinetto disponibile</span><span class="val ${buffer > 0 ? 'pos' : 'neg'}">${currencySymbol}${buffer.toFixed(0)}</span></div>
         <div class="pnl-row"><span class="label">Movimento max contro di te</span><span class="val">${maxAdverseMove.toFixed(2)} punti</span></div>
         <div class="pnl-row"><span class="label">Spread al prezzo di liquidazione</span><span class="val ${riskClass}">${mcSpreadPrice.toFixed(2)}</span></div>
       </div>
@@ -4122,10 +4126,30 @@ async function renderRiskDashboard() {
   });
 
   // Calcolo metriche aggregate
-  const cap = globalCapital || 0;
+  // ⚠️ IMPORTANTE: SPAN margins vengono inseriti dall'utente nella valuta del suo conto IBKR
+  // (EUR per conto base EUR italiano, USD per conto base USD).
+  // Quindi capitale e margini sono nella stessa valuta = nessuna conversione per le percentuali!
+  const cap = globalCapital || 0; // in currencyCode (es. EUR)
+  const accountCurr = currencyCode || 'EUR';
+  const accountSymb = currencySymbol || '€';
+  const rate = currentExchangeRate?.rate || 1.14; // EUR → USD
   const marginPct = cap > 0 ? (totalMargin / cap) * 100 : 0;
   const maxLossPct = cap > 0 ? (totalMaxLoss / cap) * 100 : 0;
   const availableMargin = cap - totalMargin;
+
+  // Helper visualizzazione:
+  // - Primario: valuta del conto (es. €)
+  // - Conversione affiancata in USD (per confronto con report CME)
+  const showDual = accountCurr !== 'USD' && rate > 0;
+  const fmtMoney = (amt, decimals = 0) => {
+    const primary = `${accountSymb}${amt.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
+    if (showDual) {
+      // Se il conto è in EUR, l'USD equivalente è amt * rate
+      const usdAmt = accountCurr === 'EUR' ? amt * rate : amt;
+      return `${primary}<div style="font-size:10px;opacity:0.65;font-weight:400;margin-top:2px;">≈ $${usdAmt.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}</div>`;
+    }
+    return primary;
+  };
 
   // Determino classe rischio aggregato
   let dashClass = '', warningHtml = '';
@@ -4182,22 +4206,22 @@ async function renderRiskDashboard() {
         <div class="risk-grid">
           <div class="risk-stat">
             <div class="stat-label">Capitale</div>
-            <div class="stat-value">${PRICE_SYMBOL}${cap.toLocaleString()}</div>
-            <div class="stat-sub">Disponibile: ${PRICE_SYMBOL}${availableMargin.toLocaleString()}</div>
+            <div class="stat-value">${fmtMoney(cap)}</div>
+            <div class="stat-sub">Disponibile margine: ${fmtMoney(availableMargin)}</div>
           </div>
           <div class="risk-stat">
             <div class="stat-label">Margine Initial</div>
-            <div class="stat-value ${marginValClass}">${PRICE_SYMBOL}${totalMargin.toFixed(0)}</div>
+            <div class="stat-value ${marginValClass}">${fmtMoney(totalMargin)}</div>
             <div class="stat-sub">${marginPct.toFixed(1)}% del capitale</div>
           </div>
           <div class="risk-stat">
             <div class="stat-label">Margine Maintenance</div>
-            <div class="stat-value" style="color:var(--amber);">${PRICE_SYMBOL}${totalMaintenance.toFixed(0)}</div>
+            <div class="stat-value" style="color:var(--amber);">${fmtMoney(totalMaintenance)}</div>
             <div class="stat-sub">🚨 Soglia margin call</div>
           </div>
           <div class="risk-stat">
             <div class="stat-label">Cuscinetto fino a MC</div>
-            <div class="stat-value safe">${PRICE_SYMBOL}${safetyBuffer.toFixed(0)}</div>
+            <div class="stat-value safe">${fmtMoney(safetyBuffer)}</div>
             <div class="stat-sub">${safetyBufferPct.toFixed(1)}% del capitale</div>
           </div>
           <div class="risk-stat">
@@ -4207,7 +4231,7 @@ async function renderRiskDashboard() {
           </div>
           <div class="risk-stat">
             <div class="stat-label">Perdita max (stop)</div>
-            <div class="stat-value ${lossValClass}">${PRICE_SYMBOL}${totalMaxLoss.toFixed(0)}</div>
+            <div class="stat-value ${lossValClass}">${fmtMoney(totalMaxLoss)}</div>
             <div class="stat-sub">${maxLossPct.toFixed(1)}% se tutti stop colpiti</div>
           </div>
         </div>
