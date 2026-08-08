@@ -1687,7 +1687,8 @@
 
     <div id="output"></div>
 
-    <div class="card exit-section" id="exitCard" style="display:none;">
+    <!-- Card "Prezzi di Uscita Reali" RIMOSSA dal form Pianifica: i prezzi di uscita si inseriscono dal modale Chiudi (tab Trade) -->
+    <div class="card exit-section" id="exitCard" style="display:none !important;" hidden>
       <div class="card-title">Prezzi di Uscita Reali</div>
       <p style="font-size: 13px; color: var(--text-dim); margin-bottom: 12px;">
         Inserisci i prezzi quando esci dall'operazione.
@@ -5362,11 +5363,11 @@ document.getElementById('modalDeleteBtn').addEventListener('click', async () => 
 });
 
 function downloadICS(r) {
-  const d = new Date(r.entryDeadline);
-  const dStr = d.toISOString().slice(0,10).replace(/-/g,'');
-  const dEnd = new Date(d.getTime()+86400000).toISOString().slice(0,10).replace(/-/g,'');
+  // Genera fino a 2 eventi separati:
+  //  1) ENTRATA: data entryDeadline (obbligatoria)
+  //  2) USCITA:  data exitDateTarget (se presente)
   
-  // Calcolo P&L proiettato e R/R se possibile
+  // Calcolo P&L proiettato e R/R se possibile (riutilizzato per entrambi gli eventi)
   let projection = '';
   if (r.spread !== null && r.targetSpread !== null && r.stopSpread !== null && r.pointPrice && r.qty) {
     const lossPerPoint = r.qty * r.pointPrice;
@@ -5391,66 +5392,120 @@ function downloadICS(r) {
   const buyPrice = r.action === 'BUY' ? r.p1 : r.p2;
   const sellPrice = r.action === 'BUY' ? r.p2 : r.p1;
   
-  // SUMMARY breve con dati chiave
-  const summary = `${r.action} ${r.leg1} / ${r.leg2} @ ${r.spread!==null?r.spread.toFixed(2):'?'}`;
-  
-  // DESCRIPTION ricca con tutto il necessario per agire
-  const lines = [
-    `=== SPREAD HELPER ===`,
-    ``,
-    `🎯 AZIONE SU IB: ${r.action} il combo`,
-    `📊 Tipo: ${r.type}`,
-    `📦 Quantita: ${r.qty} contratto/i`,
-    ``,
-    `=== GAMBE DA COSTRUIRE ===`,
-    `Leg 1 (BUY su IB): ${buyLeg}${buyPrice!==null?` @ ${buyPrice}`:''}`,
-    `Leg 2 (SELL su IB): ${sellLeg}${sellPrice!==null?` @ ${sellPrice}`:''}`,
-    ``,
-    `=== PREZZI ===`,
-    `Spread entrata: ${r.spread!==null?r.spread.toFixed(4):'N/A'}`,
-    r.targetSpread!==null?`✅ Target: ${r.targetSpread.toFixed(4)}`:null,
-    r.stopSpread!==null?`🛑 Stop Loss: ${r.stopSpread.toFixed(4)}`:null,
-    ``,
-    projection ? `=== P&L PROIETTATO ===` : null,
-    projection,
-    ``,
-    marginInfo ? `=== MARGINE ===` : null,
-    marginInfo,
-    ``,
-    r.exitDateTarget?`📅 Uscita prevista: ${new Date(r.exitDateTarget).toLocaleDateString('it-IT', {weekday:'long', day:'2-digit', month:'long', year:'numeric'})}`:null,
-    r.view?`📈 View di mercato: ${r.view}`:null,
-    ``,
-    r.notes?`📝 Note personali: ${r.notes}`:null,
-    ``,
-    `=== PROMEMORIA ===`,
-    `Verifica su SeasonAlgo prima di tradare.`,
-    `Usa Limit order, NON Market.`,
-    `Controlla i dati di mercato reali.`,
-  ].filter(l => l !== null).join('\\n');
-  
   const dtstamp = new Date().toISOString().replace(/[-:.]/g,'').slice(0,15)+'Z';
-  // SEQUENCE serve a Google Calendar per capire che è un AGGIORNAMENTO dell'evento, non un nuovo evento
-  // Uso il numero di volte che è stato modificato, basandomi sul timestamp updated
   const sequence = r.updated ? Math.floor((r.updated - (r.created || r.updated)) / 1000) : 0;
   const lastMod = new Date(r.updated || r.created || Date.now()).toISOString().replace(/[-:.]/g,'').slice(0,15)+'Z';
+  
+  // Helper per costruire un singolo VEVENT dato tipo, data, titolo, descrizione
+  function buildVEvent(kind /* 'ENTRY' | 'EXIT' */, dateStr, summary, descriptionLines) {
+    const d = new Date(dateStr);
+    const dStr = d.toISOString().slice(0,10).replace(/-/g,'');
+    const dEnd = new Date(d.getTime() + 86400000).toISOString().slice(0,10).replace(/-/g,'');
+    const description = descriptionLines.filter(l => l !== null && l !== '').join('\\n');
+    // UID diverso per entry vs exit (così Google Calendar li tiene separati)
+    const uid = `${r.id}-${kind.toLowerCase()}@spreadhelper`;
+    return [
+      'BEGIN:VEVENT',
+      `UID:${uid}`,
+      `DTSTAMP:${dtstamp}`,
+      `SEQUENCE:${sequence}`,
+      `LAST-MODIFIED:${lastMod}`,
+      `DTSTART;VALUE=DATE:${dStr}`,
+      `DTEND;VALUE=DATE:${dEnd}`,
+      `SUMMARY:${summary}`,
+      `DESCRIPTION:${description}`,
+      `LOCATION:Interactive Brokers TWS`,
+      `CATEGORIES:Trading,SpreadHelper,${kind}`,
+      'BEGIN:VALARM','TRIGGER:-P1D','ACTION:DISPLAY',`DESCRIPTION:Domani: ${summary}`,'END:VALARM',
+      'END:VEVENT'
+    ];
+  }
+  
+  const events = [];
+  
+  // ─── EVENTO ENTRATA (sempre presente, entryDeadline è obbligatoria) ───
+  if (r.entryDeadline) {
+    const entrySummary = `🚪 ENTRATA ${r.action} ${r.leg1} / ${r.leg2} @ ${r.spread!==null?r.spread.toFixed(2):'?'}`;
+    const entryDesc = [
+      `=== SPREAD HELPER · ENTRATA ===`,
+      ``,
+      `🎯 AZIONE SU IB: ${r.action} il combo`,
+      `📊 Tipo: ${r.type}`,
+      `📦 Quantita: ${r.qty} contratto/i`,
+      ``,
+      `=== GAMBE DA COSTRUIRE ===`,
+      `Leg 1 (BUY su IB): ${buyLeg}${buyPrice!==null?` @ ${buyPrice}`:''}`,
+      `Leg 2 (SELL su IB): ${sellLeg}${sellPrice!==null?` @ ${sellPrice}`:''}`,
+      ``,
+      `=== PREZZI DI INGRESSO ===`,
+      `Spread entrata: ${r.spread!==null?r.spread.toFixed(4):'N/A'}`,
+      r.targetSpread!==null?`✅ Target: ${r.targetSpread.toFixed(4)}`:null,
+      r.stopSpread!==null?`🛑 Stop Loss: ${r.stopSpread.toFixed(4)}`:null,
+      ``,
+      projection ? `=== P&L PROIETTATO ===` : null,
+      projection,
+      ``,
+      marginInfo ? `=== MARGINE ===` : null,
+      marginInfo,
+      ``,
+      r.exitDateTarget?`📅 Uscita massima: ${new Date(r.exitDateTarget).toLocaleDateString('it-IT', {weekday:'long', day:'2-digit', month:'long', year:'numeric'})}`:null,
+      r.view?`📈 View di mercato: ${r.view}`:null,
+      ``,
+      r.notes?`📝 Note personali: ${r.notes}`:null,
+      ``,
+      `=== PROMEMORIA ===`,
+      `Entra ENTRO questa data (non oltre).`,
+      `Verifica su SeasonAlgo prima di tradare.`,
+      `Usa Limit order, NON Market.`,
+    ];
+    events.push(...buildVEvent('ENTRY', r.entryDeadline, entrySummary, entryDesc));
+  }
+  
+  // ─── EVENTO USCITA (solo se exitDateTarget è impostata) ───
+  if (r.exitDateTarget) {
+    const exitAction = r.action === 'BUY' ? 'SELL (chiudi)' : 'BUY (chiudi)';
+    const exitSummary = `🏁 USCITA ${r.action} ${r.leg1} / ${r.leg2}`;
+    const exitDesc = [
+      `=== SPREAD HELPER · USCITA ===`,
+      ``,
+      `🏁 AZIONE SU IB: ${exitAction} il combo`,
+      `📦 Quantita: ${r.qty} contratto/i`,
+      ``,
+      `=== POSIZIONE DA CHIUDERE ===`,
+      `${r.leg1} / ${r.leg2}`,
+      `Entrata: ${r.spread!==null?r.spread.toFixed(4):'N/A'} @ ${r.entryDeadline ? new Date(r.entryDeadline).toLocaleDateString('it-IT') : '?'}`,
+      ``,
+      `=== TARGET DI USCITA ===`,
+      r.targetSpread!==null?`✅ Target profitto: ${r.targetSpread.toFixed(4)}`:null,
+      r.stopSpread!==null?`🛑 Stop Loss: ${r.stopSpread.toFixed(4)}`:null,
+      ``,
+      projection ? `=== P&L PROIETTATO ===` : null,
+      projection,
+      ``,
+      `=== PROMEMORIA ===`,
+      `⚠️ CHIUDI ENTRO OGGI (data massima uscita).`,
+      `Se ancora in posizione: valuta chiusura anche se non hai raggiunto target.`,
+      `Attenzione a First Notice Day dei contratti future.`,
+      `Registra il P&L reale nell'app dopo la chiusura.`,
+    ];
+    events.push(...buildVEvent('EXIT', r.exitDateTarget, exitSummary, exitDesc));
+  }
+  
+  // Se non c'è nemmeno entryDeadline, non generiamo nulla
+  if (events.length === 0) return;
+  
   const ics = [
-    'BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//SpreadHelper//IT',
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//SpreadHelper//IT',
     'METHOD:PUBLISH',
-    'BEGIN:VEVENT',`UID:${r.id}@spreadhelper`,`DTSTAMP:${dtstamp}`,
-    `SEQUENCE:${sequence}`,
-    `LAST-MODIFIED:${lastMod}`,
-    `DTSTART;VALUE=DATE:${dStr}`,`DTEND;VALUE=DATE:${dEnd}`,
-    `SUMMARY:${summary}`,
-    `DESCRIPTION:${lines}`,
-    `LOCATION:Interactive Brokers TWS`,
-    `CATEGORIES:Trading,SpreadHelper`,
-    'BEGIN:VALARM','TRIGGER:-P1D','ACTION:DISPLAY',`DESCRIPTION:Domani: ${summary}`,'END:VALARM',
-    'END:VEVENT','END:VCALENDAR'
+    ...events,
+    'END:VCALENDAR'
   ].join('\r\n');
+  
   const blob = new Blob([ics], { type: 'text/calendar' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  // Nome file con sigle, leggibile
   const cleanName = (r.leg1 + '_' + r.leg2).replace(/[^A-Za-z0-9_-]/g, '_').replace(/_+/g, '_').slice(0, 60);
   a.href = url; 
   a.download = `${r.action}_${cleanName}.ics`;
