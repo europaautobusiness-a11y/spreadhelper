@@ -2866,16 +2866,15 @@ function buildTimeChart(action, entrySpread, qty, pointPrice, leg1, leg2, entryD
   const endD = new Date(exitD.getTime() + 10*86400000);
   const totalMs = endD - startD;
 
-  const points = [entrySpread];
-  if (!isNaN(targetSpread)) points.push(targetSpread);
-  if (!isNaN(stopSpread)) points.push(stopSpread);
-  let yMin = Math.min(...points), yMax = Math.max(...points);
-  if (yMin === yMax) { yMin -= 1; yMax += 1; }
-  const pad = (yMax - yMin) * 0.4;
-  yMin -= pad; yMax += pad;
+  // 1) Calcolo range PRELIMINARE solo con livelli fissi (per generare simulazione coerente)
+  const fixedPoints = [entrySpread];
+  if (!isNaN(targetSpread)) fixedPoints.push(targetSpread);
+  if (!isNaN(stopSpread)) fixedPoints.push(stopSpread);
+  let refMin = Math.min(...fixedPoints), refMax = Math.max(...fixedPoints);
+  if (refMin === refMax) { refMin -= 1; refMax += 1; }
+  const refRange = refMax - refMin;
 
   const xScale = (d) => padL + ((d - startD) / totalMs) * cw;
-  const yScale = (v) => padT + ((yMax - v) / (yMax - yMin)) * ch;
 
   const numDays = Math.floor(totalMs / 86400000);
   const seedRandom = (seed) => { let s = seed; return () => { s = (s*9301+49297)%233280; return s/233280; }; };
@@ -2886,27 +2885,42 @@ function buildTimeChart(action, entrySpread, qty, pointPrice, leg1, leg2, entryD
   const entryIdx = pathDays.findIndex(d => d >= entryD);
   const exitIdx = pathDays.findIndex(d => d >= exitD);
 
+  // Riduco l'ampiezza random per NON uscire troppo dal range dei livelli fissi
+  const noiseSmall = refRange * 0.03;  // rumore quotidiano piccolo
+  const noiseInitial = refRange * 0.2;  // spread iniziale (più contenuto di prima)
+
   const path = [];
-  let v = entrySpread + (rand() - 0.5) * (yMax-yMin) * 0.3;
+  let v = entrySpread + (rand() - 0.5) * noiseInitial;
   for (let i = 0; i < entryIdx; i++) {
     const drift = (entrySpread - v) / Math.max(entryIdx - i, 1);
-    v += drift + (rand() - 0.5) * (yMax-yMin) * 0.05;
+    v += drift + (rand() - 0.5) * noiseSmall;
     path.push({ d: pathDays[i], v });
   }
   if (entryIdx >= 0) path.push({ d: pathDays[entryIdx], v: entrySpread });
   if (entryIdx >= 0 && exitIdx > entryIdx) {
-    const finalTarget = !isNaN(targetSpread) ? targetSpread : entrySpread + (action==='BUY' ? (yMax-entrySpread)*0.5 : -(entrySpread-yMin)*0.5);
+    const finalTarget = !isNaN(targetSpread) ? targetSpread : entrySpread + (action==='BUY' ? refRange*0.5 : -refRange*0.5);
     let cur = entrySpread;
     for (let i = entryIdx + 1; i <= exitIdx; i++) {
       const drift = (finalTarget - cur) / Math.max(exitIdx - i + 1, 1);
-      cur += drift + (rand() - 0.5) * (yMax-yMin) * 0.04;
+      cur += drift + (rand() - 0.5) * noiseSmall;
       path.push({ d: pathDays[i], v: cur });
     }
     for (let i = exitIdx + 1; i < pathDays.length; i++) {
-      cur += (rand() - 0.5) * (yMax-yMin) * 0.03;
+      cur += (rand() - 0.5) * noiseSmall;
       path.push({ d: pathDays[i], v: cur });
     }
   }
+
+  // 2) ADESSO calcolo l'asse Y DEFINITIVO includendo TUTTI i punti (livelli fissi + simulazione)
+  //    e aggiungo un padding proporzionale per evitare che qualsiasi linea venga tagliata
+  const allValues = [...fixedPoints, ...path.map(p => p.v)];
+  let yMin = Math.min(...allValues), yMax = Math.max(...allValues);
+  if (yMin === yMax) { yMin -= 1; yMax += 1; }
+  // Padding: 12% dello span totale sopra e sotto (rende il grafico "arieggiato" e nulla viene tagliato)
+  const yPad = (yMax - yMin) * 0.12;
+  yMin -= yPad; yMax += yPad;
+
+  const yScale = (v) => padT + ((yMax - v) / (yMax - yMin)) * ch;
 
   const preEntry = path.filter(p => p.d < entryD);
   const inTrade = path.filter(p => p.d >= entryD && p.d <= exitD);
