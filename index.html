@@ -1803,10 +1803,7 @@
             <input type="number" id="saReferenceSpread" step="0.01" inputmode="decimal" placeholder="es. 4237.50">
           </div>
           <div id="saComparisonOutput" style="font-size:11px;color:var(--text-faint);margin-top:6px;"></div>
-          <button type="button" class="btn secondary" id="saApplyPointPrice" style="margin-top:8px;font-size:12px;padding:6px 12px;display:none;">
-            🎯 Applica Point Price calcolato al form
-          </button>
-          <button type="button" class="btn secondary" id="saOpenReverseCalc" style="margin-top:8px;margin-left:6px;font-size:12px;padding:6px 12px;display:none;">
+          <button type="button" class="btn secondary" id="saOpenReverseCalc" style="margin-top:8px;font-size:12px;padding:6px 12px;display:none;">
             🧮 Calcola prezzi per spread target
           </button>
           
@@ -1932,21 +1929,17 @@
 
     <div id="output"></div>
 
-    <!-- Card "Prezzi di Uscita Reali" RIMOSSA dal form Pianifica: i prezzi di uscita si inseriscono dal modale Chiudi (tab Trade) -->
-    <div class="card exit-section" id="exitCard" style="display:none !important;" hidden>
-      <div class="card-title">Prezzi di Uscita Reali</div>
-      <p style="font-size: 13px; color: var(--text-dim); margin-bottom: 12px;">
-        Inserisci i prezzi quando esci dall'operazione.
-      </p>
-      <div class="row" id="exitFieldsCalendar">
-        <div class="field"><label>Near Uscita ($)</label><input type="number" id="nearExitPrice" step="0.01" inputmode="decimal" placeholder="0.00"></div>
-        <div class="field"><label>Far Uscita ($)</label><input type="number" id="farExitPrice" step="0.01" inputmode="decimal" placeholder="0.00"></div>
+    <!-- Card "Prezzi di Uscita Reali" RIMOSSA dal form Pianifica: i prezzi di uscita si inseriscono dal modale Chiudi (tab Trade). Elementi hidden mantenuti solo per retrocompatibilità con il resto del codice. -->
+    <div id="exitCard" style="display:none !important;" hidden>
+      <div id="exitFieldsCalendar" style="display:none;">
+        <input type="number" id="nearExitPrice" step="0.01">
+        <input type="number" id="farExitPrice" step="0.01">
       </div>
-      <div class="row" id="exitFieldsInter" style="display:none;">
-        <div class="field"><label>A Uscita ($)</label><input type="number" id="legAExitPrice" step="0.01" inputmode="decimal" placeholder="0.00"></div>
-        <div class="field"><label>B Uscita ($)</label><input type="number" id="legBExitPrice" step="0.01" inputmode="decimal" placeholder="0.00"></div>
+      <div id="exitFieldsInter" style="display:none;">
+        <input type="number" id="legAExitPrice" step="0.01">
+        <input type="number" id="legBExitPrice" step="0.01">
       </div>
-      <button class="btn secondary" id="calcPnlBtn" style="margin-top: 8px;">Calcola P&amp;L</button>
+      <button id="calcPnlBtn" style="display:none;">Calcola P&amp;L</button>
       <div id="pnlOutput"></div>
     </div>
 
@@ -3060,8 +3053,38 @@ let updateSeasonAlgoPanel = function() {
   }
   
   const { spreadUsd, valueA, valueB } = result;
+  const samePointVal = specA.pointVal === specB.pointVal;
+  
+  if (samePointVal) {
+    // Spread standard (stesso pointVal): mostro il calcolo classico
+    const rawSpread = priceA - priceB;
+    const pnlPerPoint = specA.pointVal;
+    auto.innerHTML = `
+      <div style="font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.7;">
+        <div style="color:var(--text-faint);font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">
+          Spread standard (stesso point value)
+        </div>
+        <div>Prezzo <strong style="color:var(--text);">${uA}</strong>: <span style="color:var(--green);">${priceA}</span></div>
+        <div>Prezzo <strong style="color:var(--text);">${uB}</strong>: <span style="color:var(--red);">${priceB}</span></div>
+        <div>Spread raw: <strong style="color:var(--text);">${(rawSpread>=0?'+':'')}${rawSpread.toFixed(4)}</strong></div>
+        <div style="border-top:1px dashed var(--border);margin-top:4px;padding-top:4px;font-weight:700;">
+          Valore in $: <span style="color:${rawSpread>=0?'var(--green)':'var(--red)'};font-size:14px;">${rawSpread>=0?'+':''}$${(rawSpread * pnlPerPoint).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</span>
+        </div>
+        <div style="font-size:11px;color:var(--text-faint);margin-top:6px;line-height:1.5;">
+          💡 Le due gambe hanno lo stesso Point Price ($${pnlPerPoint}). Usa <strong>modalità classica</strong>: inserisci target/stop come prezzi raw (es. ${(priceA + (priceA-priceB)*0.5).toFixed(2)}) e Point Price = <strong>${pnlPerPoint}</strong>.
+        </div>
+      </div>
+    `;
+    comp.innerHTML = '';
+    return;
+  }
+  
+  // Cross-multiplier (es. valute): mostro la formula SA in dollari
   auto.innerHTML = `
     <div style="font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.7;">
+      <div style="color:var(--blue);font-size:10px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">
+        Spread cross-multiplier (formula SeasonAlgo)
+      </div>
       <div>Valore <strong style="color:var(--text);">${uA}</strong>: ${priceA} × $${specA.pointVal.toLocaleString('en-US')} = <span style="color:var(--green);">$${valueA.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</span></div>
       <div>Valore <strong style="color:var(--text);">${uB}</strong>: ${priceB} × $${specB.pointVal.toLocaleString('en-US')} = <span style="color:var(--red);">$${valueB.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</span></div>
       <div style="border-top:1px dashed var(--border);margin-top:4px;padding-top:4px;font-weight:700;">
@@ -3103,24 +3126,8 @@ let updateSeasonAlgoPanel = function() {
     comp.innerHTML = '';
   }
   
-  // Calcola il Point Price consigliato: quello che, moltiplicato per lo spread raw (priceA - priceB),
-  // darebbe il valore SA. Utile per replicare SA con il tuo sistema esistente.
-  const rawSpread = priceA - priceB;
-  if (Math.abs(rawSpread) > 0.0001 && applyBtn) {
-    const suggestedPP = spreadUsd / rawSpread;
-    applyBtn.textContent = `🎯 Applica Point Price = ${Math.round(suggestedPP)} al form`;
-    applyBtn.style.display = 'inline-block';
-    applyBtn.onclick = () => {
-      const ppEl = document.getElementById('pointPrice');
-      if (ppEl) {
-        ppEl.value = Math.round(suggestedPP);
-        ppEl.dispatchEvent(new Event('input', { bubbles: true }));
-        showToast(`✓ Point Price impostato a ${Math.round(suggestedPP)} (calcolato da SeasonAlgo)`);
-      }
-    };
-  } else if (applyBtn) {
-    applyBtn.style.display = 'none';
-  }
+  // Il vecchio pulsante "Applica Point Price" è stato RIMOSSO: ora la modalità SA automatica
+  // forza il Point Price a 1 e usa direttamente lo spread in dollari.
 };
 
 // Attacco listener a tutti i campi che influenzano il pannello SA
@@ -3264,14 +3271,12 @@ updateSeasonAlgoPanel = function() {
   const priceB = parseFloat(document.getElementById('legBPrice')?.value);
   const isInterMarket = document.getElementById('spreadType')?.value === 'intercommodity';
   const hasValidSpecs = CONTRACT_SPECS[uA] && CONTRACT_SPECS[uB];
-  const saModeActive = isInterMarket && hasValidSpecs && !isNaN(priceA) && !isNaN(priceB);
+  const hasDifferentPointVal = hasValidSpecs && (CONTRACT_SPECS[uA].pointVal !== CONTRACT_SPECS[uB].pointVal);
+  const saModeActive = isInterMarket && hasDifferentPointVal && !isNaN(priceA) && !isNaN(priceB);
   
   if (reverseBtn) {
     reverseBtn.style.display = saModeActive ? 'inline-block' : 'none';
   }
-  // In modalità SA il Point Price è forzato a 1 → nascondo il pulsante "Applica Point Price"
-  const applyPPBtn = document.getElementById('saApplyPointPrice');
-  if (applyPPBtn && saModeActive) applyPPBtn.style.display = 'none';
   
   // ═══ Aggiorna label/placeholder/hint dei campi in base alla modalità ═══
   const ppLabel = document.getElementById('pointPriceLabel');
@@ -3417,9 +3422,9 @@ function compute() {
   }
 
   // ═══ MODALITÀ "DOLLARI SEASONALGO" per Inter-Commodity ═══
-  // Se siamo su Inter-Commodity e i due sottostanti sono nel database delle contract size,
-  // usiamo la formula SeasonAlgo: spread in dollari = (priceA × sizeA) - (priceB × sizeB)
-  // Point Price forzato a 1 → target/stop si inseriscono già in dollari SA
+  // Si attiva SOLO quando le due gambe hanno contract size (pointVal) DIVERSI
+  // → tipico dei cross-currency (6B/6J, 6E/6J...) dove la formula standard non basta
+  // Per spread con stesso pointVal (ZC/ZW, CL/BZ...) usiamo il comportamento classico
   let usingSAMode = false;
   let spreadPrice = null;
   if (!isCal && !isNaN(p1) && !isNaN(p2)) {
@@ -3427,18 +3432,17 @@ function compute() {
     const uB_check = document.getElementById('legBUnderlying')?.value;
     const specA_c = CONTRACT_SPECS[uA_check];
     const specB_c = CONTRACT_SPECS[uB_check];
-    if (specA_c && specB_c) {
-      // Modalità SA attiva
+    if (specA_c && specB_c && specA_c.pointVal !== specB_c.pointVal) {
+      // Modalità SA attiva solo per spread cross-multiplier (es. cross-currency)
       usingSAMode = true;
       spreadPrice = (p1 * specA_c.pointVal) - (p2 * specB_c.pointVal);
-      // Forzo point price a 1 (i valori sono già in dollari)
       pointPrice = 1;
       const ppEl = document.getElementById('pointPrice');
       if (ppEl && parseFloat(ppEl.value) !== 1) {
         ppEl.value = 1;
       }
     } else {
-      // Fallback vecchia modalità: spread grezzo dai prezzi
+      // Modalità classica: spread grezzo dai prezzi, point price come inserito dall'utente
       spreadPrice = p1 - p2;
     }
   } else if (!isNaN(p1) && !isNaN(p2)) {
@@ -3554,7 +3558,8 @@ function compute() {
     status: document.getElementById('tradeStatus').value || 'planned'
   };
 
-  exitCard.style.display = (spreadPrice !== null) ? 'block' : 'none';
+  // exitCard rimossa dalla Pianifica: sempre nascosta. I prezzi di uscita si inseriscono dal modale Chiudi.
+  exitCard.style.display = 'none';
   reminderCard.style.display = 'block';
   document.getElementById('pnlOutput').innerHTML = '';
 }
