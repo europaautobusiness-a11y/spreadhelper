@@ -2747,6 +2747,7 @@ spreadType.addEventListener('change', () => {
 let lastResult = null;
 let editingId = null; // se non-null, sto modificando un trade esistente
 let globalCapital = null; // capitale conto IB INIZIALE, salvato in settings
+let _cachedTrades = []; // cache dei trade per calcoli sincroni (aggiornata da renderReminders e altri loader)
 
 // ============================================================
 // CAPITALE ATTUALE (DINAMICO): iniziale + Σ P&L reali dei trade CHIUSI
@@ -2754,14 +2755,16 @@ let globalCapital = null; // capitale conto IB INIZIALE, salvato in settings
 // Il capitale iniziale in Settings resta come "punto di partenza".
 // Tutti i calcoli percentuali (margine %, cushion, rischio) usano
 // questa funzione per avere sempre il capitale aggiornato ai P&L realizzati.
+// NOTA: usa _cachedTrades (array in memoria) per essere sincrona.
+// La cache si aggiorna quando i trade vengono caricati da IndexedDB/Firebase.
 function getCurrentCapital() {
   if (!globalCapital) return null;
-  if (!Array.isArray(records) || records.length === 0) return globalCapital;
-  const accountCurr = currencyCode || 'EUR';
-  const rate = (currentExchangeRate && currentExchangeRate.rate) || 1.14;
+  if (!Array.isArray(_cachedTrades) || _cachedTrades.length === 0) return globalCapital;
+  const accountCurr = (typeof currencyCode !== 'undefined' && currencyCode) ? currencyCode : 'EUR';
+  const rate = (typeof currentExchangeRate !== 'undefined' && currentExchangeRate && currentExchangeRate.rate) ? currentExchangeRate.rate : 1.14;
   let cumulativePnl = 0;
-  for (const t of records) {
-    if (t.status !== 'closed') continue;
+  for (const t of _cachedTrades) {
+    if (!t || t.status !== 'closed') continue;
     if (t.pnlReal === null || t.pnlReal === undefined || isNaN(t.pnlReal)) continue;
     let pnl = parseFloat(t.pnlReal);
     const pnlCurr = t.pnlRealCurrency || accountCurr;
@@ -2942,10 +2945,19 @@ document.getElementById('currencySelect').addEventListener('change', async (e) =
 function updateCapitalUI() {
   const v = document.getElementById('globalCapitalValue');
   const ref = document.getElementById('capitalRef');
+  if (!v) return;
   if (globalCapital && globalCapital > 0) {
-    const currentCap = getCurrentCapital();
-    const realizedPnl = getRealizedPnl();
-    const hasPnl = Math.abs(realizedPnl) > 0.01;
+    let currentCap = globalCapital;
+    let realizedPnl = 0;
+    let hasPnl = false;
+    // Prova a calcolare il capitale dinamico ma in modo safe
+    try {
+      currentCap = getCurrentCapital() || globalCapital;
+      realizedPnl = getRealizedPnl();
+      hasPnl = Math.abs(realizedPnl) > 0.01;
+    } catch (e) {
+      console.warn('Errore calcolo capitale dinamico, uso quello iniziale:', e);
+    }
     
     if (hasPnl) {
       // Mostro il capitale attuale (con P&L) + breakdown
@@ -3549,7 +3561,7 @@ function compute() {
     const exitDateTarget = document.getElementById('exitDateTarget').value;
     const targetSpread = parseFloat(document.getElementById('targetSpread').value);
     const stopSpread = parseFloat(document.getElementById('stopSpread').value);
-    const capital = getCurrentCapital(); // capitale dinamico: iniziale + P&L realizzati
+    const capital = globalCapital; // capitale iniziale (statico)
     const spanMargin = parseFloat(document.getElementById('spanMargin').value);
     const maintenanceMargin = parseFloat(document.getElementById('maintenanceMargin').value);
     const riskPct = parseFloat(document.getElementById('riskPct').value) || 2;
@@ -4325,7 +4337,7 @@ document.getElementById('runRiskBtn').addEventListener('click', async () => {
   }
 
   // Stress test scenarios
-  const cap = getCurrentCapital() || 0;
+  const cap = globalCapital || 0;
   const scenarios = [
     { name: '🟢 Stress lieve: -10% sui trade aperti', mult: 0.10 },
     { name: '🟡 Stress medio: -25% sui trade aperti', mult: 0.25 },
@@ -5001,7 +5013,9 @@ function getUrgency(days) {
 async function loadTrades() {
   try {
     const items = await dbGetAll();
-    return items.sort((a,b) => new Date(a.entryDeadline) - new Date(b.entryDeadline));
+    const sorted = items.sort((a,b) => new Date(a.entryDeadline) - new Date(b.entryDeadline));
+    _cachedTrades = sorted; // Aggiorna cache centrale per getCurrentCapital()
+    return sorted;
   } catch (e) { return []; }
 }
 
@@ -5055,7 +5069,7 @@ async function renderRiskDashboard() {
   // ⚠️ IMPORTANTE: SPAN margins vengono inseriti dall'utente nella valuta del suo conto IBKR
   // (EUR per conto base EUR italiano, USD per conto base USD).
   // Quindi capitale e margini sono nella stessa valuta = nessuna conversione per le percentuali!
-  const cap = getCurrentCapital() || 0; // in currencyCode (es. EUR) - dinamico con P&L realizzati
+  const cap = globalCapital || 0; // in currencyCode (es. EUR)
   const accountCurr = currencyCode || 'EUR';
   const accountSymb = currencySymbol || '€';
   const rate = currentExchangeRate?.rate || 1.14; // EUR → USD
@@ -5193,6 +5207,7 @@ async function renderReminders() {
   await renderRiskDashboard();
   const list = document.getElementById('remindersList');
   const items = await loadTrades();
+  _cachedTrades = items; // Aggiorna cache per getCurrentCapital()
 
   // Aggiorna contatori filtri
   const counts = {
@@ -5987,7 +6002,7 @@ function openDetailsModal(r) {
                            r.entryDate, r.exitDateTarget, r.targetSpread, r.stopSpread);
     payoff = buildPayoffChart(action, spreadPrice, qty, pointPrice);
     projection = buildProjection(action, spreadPrice, qty, pointPrice, r.targetSpread, r.stopSpread);
-    marginRisk = buildMarginRisk(action, spreadPrice, qty, pointPrice, r.stopSpread, getCurrentCapital(), r.spanMargin, r.maintenanceMargin, r.riskPct || 2);
+    marginRisk = buildMarginRisk(action, spreadPrice, qty, pointPrice, r.stopSpread, globalCapital, r.spanMargin, r.maintenanceMargin, r.riskPct || 2);
   }
 
   // P&L reale se ci sono prezzi di uscita
