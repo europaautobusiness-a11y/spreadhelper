@@ -1500,19 +1500,59 @@
           <div class="field">
             <label>Sottostante</label>
             <select id="underlying">
-              <option value="CL">CL · WTI Crude Oil</option>
-              <option value="BZ">BZ · Brent Crude</option>
-              <option value="NG">NG · Natural Gas</option>
-              <option value="ZC">ZC · Corn / Mais</option>
-              <option value="ZW">ZW · Wheat / Grano</option>
-              <option value="ZS">ZS · Soybeans / Soia</option>
-              <option value="GC">GC · Gold / Oro</option>
-              <option value="SI">SI · Silver / Argento</option>
-              <option value="HG">HG · Copper / Rame</option>
-              <option value="HO">HO · Heating Oil</option>
-              <option value="RB">RB · Gasoline RBOB</option>
-              <option value="VX">VX · VIX</option>
-              <option value="VXN">VXN · VIX Nasdaq</option>
+              <optgroup label="⚡ Energy">
+                <option value="CL">CL · WTI Crude Oil</option>
+                <option value="BZ">BZ · Brent Crude</option>
+                <option value="NG">NG · Natural Gas</option>
+                <option value="HO">HO · Heating Oil</option>
+                <option value="RB">RB · Gasoline RBOB</option>
+              </optgroup>
+              <optgroup label="🌾 Grains & Oilseeds">
+                <option value="ZC">ZC · Corn / Mais</option>
+                <option value="ZW">ZW · Wheat / Grano</option>
+                <option value="ZS">ZS · Soybeans / Soia</option>
+                <option value="ZM">ZM · Soybean Meal / Farina soia</option>
+                <option value="ZL">ZL · Soybean Oil / Olio soia</option>
+                <option value="ZO">ZO · Oats / Avena</option>
+                <option value="ZR">ZR · Rough Rice / Riso</option>
+                <option value="KE">KE · KC Wheat / Grano Kansas</option>
+              </optgroup>
+              <optgroup label="🥩 Livestock / Meats">
+                <option value="LE">LE · Live Cattle / Bovini vivi</option>
+                <option value="GF">GF · Feeder Cattle / Bovini da ingrasso</option>
+                <option value="HE">HE · Lean Hogs / Suini magri</option>
+              </optgroup>
+              <optgroup label="☕ Softs">
+                <option value="KC">KC · Coffee / Caffè</option>
+                <option value="SB">SB · Sugar #11 / Zucchero</option>
+                <option value="CC">CC · Cocoa / Cacao</option>
+                <option value="CT">CT · Cotton / Cotone</option>
+                <option value="OJ">OJ · Orange Juice / Succo arancia</option>
+              </optgroup>
+              <optgroup label="🥇 Metals">
+                <option value="GC">GC · Gold / Oro</option>
+                <option value="SI">SI · Silver / Argento</option>
+                <option value="HG">HG · Copper / Rame</option>
+                <option value="PL">PL · Platinum / Platino</option>
+                <option value="PA">PA · Palladium / Palladio</option>
+              </optgroup>
+              <optgroup label="📊 Volatility / Index">
+                <option value="VX">VX · VIX</option>
+                <option value="VXM">VXM · VIX Micro</option>
+                <option value="VXN">VXN · VIX Nasdaq</option>
+                <option value="ES">ES · S&P 500 E-mini</option>
+                <option value="NQ">NQ · Nasdaq 100 E-mini</option>
+                <option value="YM">YM · Dow Jones E-mini</option>
+                <option value="RTY">RTY · Russell 2000 E-mini</option>
+              </optgroup>
+              <optgroup label="💱 Currencies">
+                <option value="6E">6E · Euro FX</option>
+                <option value="6B">6B · British Pound</option>
+                <option value="6J">6J · Japanese Yen</option>
+                <option value="6C">6C · Canadian Dollar</option>
+                <option value="6A">6A · Australian Dollar</option>
+                <option value="6S">6S · Swiss Franc</option>
+              </optgroup>
               <option value="CUSTOM">Altro...</option>
             </select>
           </div>
@@ -1569,22 +1609,203 @@
         </div>
       </div>
       <div id="intercommodityFields" style="display:none;">
+        <!-- GAMBA A -->
         <div class="row">
           <div class="field">
-            <label>Gamba A (codice + scadenza)</label>
-            <input type="text" id="legASymbol" placeholder="es. CLM26 (Giugno 2026)">
+            <label>Gamba A · Sottostante</label>
+            <select id="legAUnderlying">
+              <optgroup label="⚡ Energy">
+                <option value="CL">CL · WTI Crude Oil</option>
+                <option value="BZ">BZ · Brent Crude</option>
+                <option value="NG">NG · Natural Gas</option>
+                <option value="HO">HO · Heating Oil</option>
+                <option value="RB">RB · Gasoline RBOB</option>
+              </optgroup>
+              <optgroup label="🌾 Grains & Oilseeds">
+                <option value="ZC">ZC · Corn / Mais</option>
+                <option value="ZW">ZW · Wheat / Grano</option>
+                <option value="ZS">ZS · Soybeans / Soia</option>
+                <option value="ZM">ZM · Soybean Meal / Farina soia</option>
+                <option value="ZL">ZL · Soybean Oil / Olio soia</option>
+                <option value="ZO">ZO · Oats / Avena</option>
+                <option value="ZR">ZR · Rough Rice / Riso</option>
+                <option value="KE">KE · KC Wheat / Grano Kansas</option>
+              </optgroup>
+              <optgroup label="🥩 Livestock / Meats">
+                <option value="LE">LE · Live Cattle / Bovini vivi</option>
+                <option value="GF">GF · Feeder Cattle / Bovini da ingrasso</option>
+                <option value="HE">HE · Lean Hogs / Suini magri</option>
+              </optgroup>
+              <optgroup label="☕ Softs">
+                <option value="KC">KC · Coffee / Caffè</option>
+                <option value="SB">SB · Sugar #11 / Zucchero</option>
+                <option value="CC">CC · Cocoa / Cacao</option>
+                <option value="CT">CT · Cotton / Cotone</option>
+                <option value="OJ">OJ · Orange Juice / Succo arancia</option>
+              </optgroup>
+              <optgroup label="🥇 Metals">
+                <option value="GC">GC · Gold / Oro</option>
+                <option value="SI">SI · Silver / Argento</option>
+                <option value="HG">HG · Copper / Rame</option>
+                <option value="PL">PL · Platinum / Platino</option>
+                <option value="PA">PA · Palladium / Palladio</option>
+              </optgroup>
+              <optgroup label="📊 Volatility / Index">
+                <option value="VX">VX · VIX</option>
+                <option value="VXM">VXM · VIX Micro</option>
+                <option value="VXN">VXN · VIX Nasdaq</option>
+                <option value="ES">ES · S&P 500 E-mini</option>
+                <option value="NQ">NQ · Nasdaq 100 E-mini</option>
+                <option value="YM">YM · Dow Jones E-mini</option>
+                <option value="RTY">RTY · Russell 2000 E-mini</option>
+              </optgroup>
+              <optgroup label="💱 Currencies">
+                <option value="6E">6E · Euro FX</option>
+                <option value="6B">6B · British Pound</option>
+                <option value="6J">6J · Japanese Yen</option>
+                <option value="6C">6C · Canadian Dollar</option>
+                <option value="6A">6A · Australian Dollar</option>
+                <option value="6S">6S · Swiss Franc</option>
+              </optgroup>
+            </select>
           </div>
           <div class="field">
-            <label>Gamba B (codice + scadenza)</label>
-            <input type="text" id="legBSymbol" placeholder="es. HOM26 (Giugno 2026)">
+            <label>Gamba A · Scadenza</label>
+            <div style="display:grid;grid-template-columns:1fr 90px;gap:6px;">
+              <select id="legAMonthSel">
+                <option value="">— Mese —</option>
+                <option value="F|GEN">F · Gennaio</option>
+                <option value="G|FEB">G · Febbraio</option>
+                <option value="H|MAR">H · Marzo</option>
+                <option value="J|APR">J · Aprile</option>
+                <option value="K|MAG">K · Maggio</option>
+                <option value="M|GIU">M · Giugno</option>
+                <option value="N|LUG">N · Luglio</option>
+                <option value="Q|AGO">Q · Agosto</option>
+                <option value="U|SET">U · Settembre</option>
+                <option value="V|OTT">V · Ottobre</option>
+                <option value="X|NOV">X · Novembre</option>
+                <option value="Z|DIC">Z · Dicembre</option>
+              </select>
+              <select id="legAYearSel"></select>
+            </div>
+            <span class="hint" id="legACodeHint" style="font-family:'JetBrains Mono',monospace;color:var(--blue);">—</span>
           </div>
         </div>
+        
+        <!-- GAMBA B -->
+        <div class="row">
+          <div class="field">
+            <label>Gamba B · Sottostante</label>
+            <select id="legBUnderlying">
+              <optgroup label="⚡ Energy">
+                <option value="CL">CL · WTI Crude Oil</option>
+                <option value="BZ">BZ · Brent Crude</option>
+                <option value="NG">NG · Natural Gas</option>
+                <option value="HO">HO · Heating Oil</option>
+                <option value="RB">RB · Gasoline RBOB</option>
+              </optgroup>
+              <optgroup label="🌾 Grains & Oilseeds">
+                <option value="ZC">ZC · Corn / Mais</option>
+                <option value="ZW">ZW · Wheat / Grano</option>
+                <option value="ZS">ZS · Soybeans / Soia</option>
+                <option value="ZM">ZM · Soybean Meal / Farina soia</option>
+                <option value="ZL">ZL · Soybean Oil / Olio soia</option>
+                <option value="ZO">ZO · Oats / Avena</option>
+                <option value="ZR">ZR · Rough Rice / Riso</option>
+                <option value="KE">KE · KC Wheat / Grano Kansas</option>
+              </optgroup>
+              <optgroup label="🥩 Livestock / Meats">
+                <option value="LE">LE · Live Cattle / Bovini vivi</option>
+                <option value="GF">GF · Feeder Cattle / Bovini da ingrasso</option>
+                <option value="HE">HE · Lean Hogs / Suini magri</option>
+              </optgroup>
+              <optgroup label="☕ Softs">
+                <option value="KC">KC · Coffee / Caffè</option>
+                <option value="SB">SB · Sugar #11 / Zucchero</option>
+                <option value="CC">CC · Cocoa / Cacao</option>
+                <option value="CT">CT · Cotton / Cotone</option>
+                <option value="OJ">OJ · Orange Juice / Succo arancia</option>
+              </optgroup>
+              <optgroup label="🥇 Metals">
+                <option value="GC">GC · Gold / Oro</option>
+                <option value="SI">SI · Silver / Argento</option>
+                <option value="HG">HG · Copper / Rame</option>
+                <option value="PL">PL · Platinum / Platino</option>
+                <option value="PA">PA · Palladium / Palladio</option>
+              </optgroup>
+              <optgroup label="📊 Volatility / Index">
+                <option value="VX">VX · VIX</option>
+                <option value="VXM">VXM · VIX Micro</option>
+                <option value="VXN">VXN · VIX Nasdaq</option>
+                <option value="ES">ES · S&P 500 E-mini</option>
+                <option value="NQ">NQ · Nasdaq 100 E-mini</option>
+                <option value="YM">YM · Dow Jones E-mini</option>
+                <option value="RTY">RTY · Russell 2000 E-mini</option>
+              </optgroup>
+              <optgroup label="💱 Currencies">
+                <option value="6E">6E · Euro FX</option>
+                <option value="6B">6B · British Pound</option>
+                <option value="6J">6J · Japanese Yen</option>
+                <option value="6C">6C · Canadian Dollar</option>
+                <option value="6A">6A · Australian Dollar</option>
+                <option value="6S">6S · Swiss Franc</option>
+              </optgroup>
+            </select>
+          </div>
+          <div class="field">
+            <label>Gamba B · Scadenza</label>
+            <div style="display:grid;grid-template-columns:1fr 90px;gap:6px;">
+              <select id="legBMonthSel">
+                <option value="">— Mese —</option>
+                <option value="F|GEN">F · Gennaio</option>
+                <option value="G|FEB">G · Febbraio</option>
+                <option value="H|MAR">H · Marzo</option>
+                <option value="J|APR">J · Aprile</option>
+                <option value="K|MAG">K · Maggio</option>
+                <option value="M|GIU">M · Giugno</option>
+                <option value="N|LUG">N · Luglio</option>
+                <option value="Q|AGO">Q · Agosto</option>
+                <option value="U|SET">U · Settembre</option>
+                <option value="V|OTT">V · Ottobre</option>
+                <option value="X|NOV">X · Novembre</option>
+                <option value="Z|DIC">Z · Dicembre</option>
+              </select>
+              <select id="legBYearSel"></select>
+            </div>
+            <span class="hint" id="legBCodeHint" style="font-family:'JetBrains Mono',monospace;color:var(--blue);">—</span>
+          </div>
+        </div>
+        
         <div class="row">
           <div class="field"><label>Prezzo A ($)</label><input type="number" id="legAPrice" step="0.01" inputmode="decimal" placeholder="0.00"></div>
           <div class="field"><label>Prezzo B ($)</label><input type="number" id="legBPrice" step="0.01" inputmode="decimal" placeholder="0.00"></div>
         </div>
+        
+        <!-- Nascondo i vecchi input testuali per retrocompatibilità con il resto del codice -->
+        <input type="hidden" id="legASymbol" value="">
+        <input type="hidden" id="legBSymbol" value="">
+        
         <div style="font-size:11px;color:var(--text-faint);margin-top:4px;line-height:1.5;">
           <strong style="color:var(--text-dim);">Codifica mesi CME:</strong> F=Gen, G=Feb, H=Mar, J=Apr, K=Mag, M=Giu, N=Lug, Q=Ago, U=Set, V=Ott, X=Nov, Z=Dic
+        </div>
+        
+        <!-- ═══ RIFERIMENTO SEASONALGO ═══ -->
+        <div id="saReferenceBox" style="margin-top:14px;padding:12px;background:linear-gradient(135deg, rgba(33,150,243,0.08), rgba(33,150,243,0.02));border:1px solid rgba(33,150,243,0.3);border-radius:10px;">
+          <div style="font-size:12px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">
+            📊 Riferimento SeasonAlgo (opzionale)
+          </div>
+          <div id="saAutoCalcOutput" style="font-size:12px;color:var(--text-dim);margin-bottom:10px;line-height:1.5;">
+            <em>Inserisci i prezzi delle due gambe e il sottostante per vedere il calcolo automatico dello spread in dollari.</em>
+          </div>
+          <div class="field" style="margin-bottom:8px;">
+            <label style="font-size:11px;">Spread SA di riferimento ($) — quello che leggi sul grafico SeasonAlgo</label>
+            <input type="number" id="saReferenceSpread" step="0.01" inputmode="decimal" placeholder="es. 4237.50">
+          </div>
+          <div id="saComparisonOutput" style="font-size:11px;color:var(--text-faint);margin-top:6px;"></div>
+          <button type="button" class="btn secondary" id="saApplyPointPrice" style="margin-top:8px;font-size:12px;padding:6px 12px;display:none;">
+            🎯 Applica Point Price calcolato al form
+          </button>
         </div>
       </div>
     </div>
@@ -2514,6 +2735,79 @@ const PRICE_SYMBOL = '$';        // I prezzi futures CME sono sempre in USD
 const PRICE_CURRENCY = 'USD';
 let currencyCode = 'EUR';        // Default: conto IBKR in EUR (utente italiano)
 let currencySymbol = '€';
+
+// ============================================================
+// CONTRACT SPECIFICATIONS — CME/CBOT/CFE (dati ufficiali verificati)
+// ============================================================
+// Formula "SeasonAlgo" per calcolare lo spread in dollari:
+//   Valore_contratto = Prezzo_quotato × contractSize
+//   Spread_$ = Valore_contratto_A − Valore_contratto_B
+//
+// NOTA sui JPY (6J): il prezzo è quotato "per 100 JPY", quindi contractSize
+// effettivo = 12.500.000 / 100 × 100 = 12.500.000. Ma dato che il prezzo è
+// diviso per 100 nel display (es. 0.64105), il moltiplicatore effettivo diventa 125.000.
+// (verificato empiricamente sui dati SeasonAlgo dell'utente)
+const CONTRACT_SPECS = {
+  // ⚡ Energy
+  'CL':  { size: 1000,       unit: 'barili',      pointVal: 1000 },   // WTI Crude Oil
+  'BZ':  { size: 1000,       unit: 'barili',      pointVal: 1000 },   // Brent Crude
+  'NG':  { size: 10000,      unit: 'MMBtu',       pointVal: 10000 },  // Natural Gas
+  'HO':  { size: 42000,      unit: 'galloni',     pointVal: 42000 },  // Heating Oil
+  'RB':  { size: 42000,      unit: 'galloni',     pointVal: 42000 },  // Gasoline RBOB
+  // 🌾 Grains & Oilseeds (prezzo in cents/bushel → point value = size × 0.01)
+  'ZC':  { size: 5000,       unit: 'bushel',      pointVal: 50 },     // Corn: 5000 × $0.01 = $50/punto
+  'ZW':  { size: 5000,       unit: 'bushel',      pointVal: 50 },     // Wheat
+  'ZS':  { size: 5000,       unit: 'bushel',      pointVal: 50 },     // Soybeans
+  'ZM':  { size: 100,        unit: 'short tons',  pointVal: 100 },    // Soybean Meal: $1/ton × 100 tons = $100/punto
+  'ZL':  { size: 60000,      unit: 'lbs',         pointVal: 600 },    // Soybean Oil: $0.01/lb × 60000 = $600/punto
+  'ZO':  { size: 5000,       unit: 'bushel',      pointVal: 50 },     // Oats
+  'ZR':  { size: 2000,       unit: 'cwt',         pointVal: 2000 },   // Rough Rice
+  'KE':  { size: 5000,       unit: 'bushel',      pointVal: 50 },     // KC Wheat
+  // 🥩 Livestock (prezzo in cents/lb → point val = size × 0.01)
+  'LE':  { size: 40000,      unit: 'lbs',         pointVal: 400 },    // Live Cattle
+  'GF':  { size: 50000,      unit: 'lbs',         pointVal: 500 },    // Feeder Cattle
+  'HE':  { size: 40000,      unit: 'lbs',         pointVal: 400 },    // Lean Hogs
+  // ☕ Softs
+  'KC':  { size: 37500,      unit: 'lbs',         pointVal: 375 },    // Coffee: $0.01/lb × 37500 = $375/punto
+  'SB':  { size: 112000,     unit: 'lbs',         pointVal: 1120 },   // Sugar: $0.01/lb × 112000 = $1120/punto
+  'CC':  { size: 10,         unit: 'metric tons', pointVal: 10 },     // Cocoa: $1/ton × 10 tons = $10/punto
+  'CT':  { size: 50000,      unit: 'lbs',         pointVal: 500 },    // Cotton
+  'OJ':  { size: 15000,      unit: 'lbs',         pointVal: 150 },    // Orange Juice
+  // 🥇 Metals
+  'GC':  { size: 100,        unit: 'once troy',   pointVal: 100 },    // Gold: $1/oz × 100 oz = $100/punto
+  'SI':  { size: 5000,       unit: 'once troy',   pointVal: 5000 },   // Silver
+  'HG':  { size: 25000,      unit: 'lbs',         pointVal: 250 },    // Copper: $0.01/lb × 25000 = $250/punto
+  'PL':  { size: 50,         unit: 'once troy',   pointVal: 50 },     // Platinum
+  'PA':  { size: 100,        unit: 'once troy',   pointVal: 100 },    // Palladium
+  // 📊 Volatility & Indexes
+  'VX':  { size: 1000,       unit: 'punti VIX',   pointVal: 1000 },   // VIX
+  'VXM': { size: 100,        unit: 'punti VIX',   pointVal: 100 },    // VIX Micro
+  'VXN': { size: 100,        unit: 'punti VXN',   pointVal: 100 },
+  'ES':  { size: 50,         unit: 'punti SPX',   pointVal: 50 },     // E-mini S&P 500
+  'NQ':  { size: 20,         unit: 'punti NDX',   pointVal: 20 },     // E-mini Nasdaq 100
+  'YM':  { size: 5,          unit: 'punti INDU',  pointVal: 5 },      // E-mini Dow
+  'RTY': { size: 50,         unit: 'punti RUT',   pointVal: 50 },     // E-mini Russell 2000
+  // 💱 Currencies (formula SeasonAlgo: Prezzo × contractSize)
+  '6E':  { size: 125000,     unit: 'EUR',         pointVal: 125000 }, // Euro FX
+  '6B':  { size: 62500,      unit: 'GBP',         pointVal: 62500 },  // British Pound
+  '6J':  { size: 125000,     unit: '100 JPY',     pointVal: 125000 }, // Japanese Yen (quotato per 100 JPY, contract 12.5M JPY → moltiplicatore effettivo 125.000)
+  '6C':  { size: 100000,     unit: 'CAD',         pointVal: 100000 }, // Canadian Dollar
+  '6A':  { size: 100000,     unit: 'AUD',         pointVal: 100000 }, // Australian Dollar
+  '6S':  { size: 125000,     unit: 'CHF',         pointVal: 125000 }, // Swiss Franc
+  '6N':  { size: 100000,     unit: 'NZD',         pointVal: 100000 }, // NZ Dollar
+};
+
+// Calcola lo "spread SeasonAlgo" (valore monetario in USD) da due gambe
+// Formula: Spread_$ = (PrezzoA × sizeA) − (PrezzoB × sizeB)
+function calcSeasonAlgoSpread(underlyingA, priceA, underlyingB, priceB) {
+  const specA = CONTRACT_SPECS[underlyingA];
+  const specB = CONTRACT_SPECS[underlyingB];
+  if (!specA || !specB) return null;
+  if (isNaN(priceA) || isNaN(priceB)) return null;
+  const valueA = priceA * specA.pointVal;
+  const valueB = priceB * specB.pointVal;
+  return { spreadUsd: valueA - valueB, valueA, valueB, specA, specB };
+}
 const output = document.getElementById('output');
 const exitCard = document.getElementById('exitCard');
 const reminderCard = document.getElementById('reminderCard');
@@ -2638,13 +2932,15 @@ document.getElementById('cancelCapitalBtn').addEventListener('click', () => {
   const curYear = new Date().getFullYear();
   const years = [];
   for (let y = curYear; y <= curYear + 5; y++) years.push(y);
-  ['nearYearSel', 'farYearSel'].forEach(id => {
+  // Calendar + Inter-commodity: 4 select anno da popolare
+  ['nearYearSel', 'farYearSel', 'legAYearSel', 'legBYearSel'].forEach(id => {
     const sel = document.getElementById(id);
-    sel.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
+    if (sel) sel.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
   });
 })();
 
 function updateCMECodeHints() {
+  // Calendar
   const u = document.getElementById('underlying').value;
   ['near', 'far'].forEach(prefix => {
     const monthVal = document.getElementById(prefix + 'MonthSel').value;
@@ -2658,12 +2954,157 @@ function updateCMECodeHints() {
       hint.textContent = '—';
     }
   });
+  // Inter-commodity
+  ['legA', 'legB'].forEach(prefix => {
+    const underlyingEl = document.getElementById(prefix + 'Underlying');
+    const monthEl = document.getElementById(prefix + 'MonthSel');
+    const yearEl = document.getElementById(prefix + 'YearSel');
+    const hint = document.getElementById(prefix + 'CodeHint');
+    const hiddenSymbol = document.getElementById(prefix + 'Symbol');
+    if (!underlyingEl || !monthEl || !yearEl || !hint) return;
+    const uu = underlyingEl.value;
+    const monthVal = monthEl.value;
+    const yearVal = yearEl.value;
+    if (uu && monthVal && yearVal) {
+      const code = monthVal.split('|')[0];
+      const monthLabel = monthVal.split('|')[1];
+      const yr2 = String(yearVal).slice(-2);
+      const ticker = `${uu}${code}${yr2}`;
+      hint.textContent = `Codice IB: ${ticker}`;
+      // Salvo il ticker anche nell'input hidden per retrocompatibilità
+      if (hiddenSymbol) hiddenSymbol.value = ticker;
+    } else {
+      hint.textContent = '—';
+      if (hiddenSymbol) hiddenSymbol.value = '';
+    }
+  });
 }
 
-['underlying','nearMonthSel','nearYearSel','farMonthSel','farYearSel'].forEach(id => {
+['underlying','nearMonthSel','nearYearSel','farMonthSel','farYearSel',
+ 'legAUnderlying','legAMonthSel','legAYearSel',
+ 'legBUnderlying','legBMonthSel','legBYearSel'].forEach(id => {
   const el = document.getElementById(id);
   if (el) el.addEventListener('change', updateCMECodeHints);
 });
+
+// ============================================================
+// PANNELLO "Riferimento SeasonAlgo" per Inter-Commodity
+// ============================================================
+function updateSeasonAlgoPanel() {
+  const auto = document.getElementById('saAutoCalcOutput');
+  const comp = document.getElementById('saComparisonOutput');
+  const applyBtn = document.getElementById('saApplyPointPrice');
+  if (!auto || !comp) return;
+  
+  const uA = document.getElementById('legAUnderlying')?.value;
+  const uB = document.getElementById('legBUnderlying')?.value;
+  const priceA = parseFloat(document.getElementById('legAPrice')?.value);
+  const priceB = parseFloat(document.getElementById('legBPrice')?.value);
+  
+  if (!uA || !uB) {
+    auto.innerHTML = '<em>Seleziona i due sottostanti nelle gambe A e B.</em>';
+    comp.innerHTML = '';
+    if (applyBtn) applyBtn.style.display = 'none';
+    return;
+  }
+  
+  const specA = CONTRACT_SPECS[uA];
+  const specB = CONTRACT_SPECS[uB];
+  if (!specA || !specB) {
+    auto.innerHTML = `<em>⚠️ Sottostante non riconosciuto (${!specA ? uA : uB}). Le contract size non sono nel database.</em>`;
+    comp.innerHTML = '';
+    if (applyBtn) applyBtn.style.display = 'none';
+    return;
+  }
+  
+  if (isNaN(priceA) || isNaN(priceB)) {
+    auto.innerHTML = `<strong style="color:var(--text);">📋 Specifiche contratti riconosciute:</strong><br>
+      • <strong>${uA}</strong>: ${specA.size.toLocaleString('en-US')} ${specA.unit} → moltiplicatore $${specA.pointVal.toLocaleString('en-US')}/punto<br>
+      • <strong>${uB}</strong>: ${specB.size.toLocaleString('en-US')} ${specB.unit} → moltiplicatore $${specB.pointVal.toLocaleString('en-US')}/punto<br>
+      <em style="color:var(--text-faint);">Inserisci i prezzi delle due gambe per vedere lo spread in dollari.</em>`;
+    comp.innerHTML = '';
+    if (applyBtn) applyBtn.style.display = 'none';
+    return;
+  }
+  
+  const result = calcSeasonAlgoSpread(uA, priceA, uB, priceB);
+  if (!result) {
+    auto.innerHTML = '<em>Impossibile calcolare (verifica i valori inseriti).</em>';
+    return;
+  }
+  
+  const { spreadUsd, valueA, valueB } = result;
+  auto.innerHTML = `
+    <div style="font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.7;">
+      <div>Valore <strong style="color:var(--text);">${uA}</strong>: ${priceA} × $${specA.pointVal.toLocaleString('en-US')} = <span style="color:var(--green);">$${valueA.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</span></div>
+      <div>Valore <strong style="color:var(--text);">${uB}</strong>: ${priceB} × $${specB.pointVal.toLocaleString('en-US')} = <span style="color:var(--red);">$${valueB.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</span></div>
+      <div style="border-top:1px dashed var(--border);margin-top:4px;padding-top:4px;font-weight:700;">
+        Spread SA calcolato: <span style="color:${spreadUsd>=0?'var(--green)':'var(--red)'};font-size:14px;">$${spreadUsd.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</span>
+      </div>
+    </div>
+  `;
+  
+  // Confronto con riferimento SA se inserito
+  const saRef = parseFloat(document.getElementById('saReferenceSpread')?.value);
+  if (!isNaN(saRef)) {
+    const diff = saRef - spreadUsd;
+    const diffPct = spreadUsd !== 0 ? (diff / Math.abs(spreadUsd)) * 100 : 0;
+    const isMatch = Math.abs(diff) < 5;
+    const isCose = Math.abs(diff) < 50;
+    if (isMatch) {
+      comp.innerHTML = `
+        <div style="padding:8px 10px;background:rgba(81,207,102,0.1);border-left:3px solid var(--green);border-radius:4px;color:var(--green);">
+          ✅ <strong>Perfetto match!</strong> Il valore calcolato ($${spreadUsd.toFixed(2)}) coincide con SeasonAlgo ($${saRef.toFixed(2)}).<br>
+          <span style="color:var(--text-dim);font-size:10px;">Le contract size sono corrette per questo spread.</span>
+        </div>
+      `;
+    } else if (isCose) {
+      comp.innerHTML = `
+        <div style="padding:8px 10px;background:rgba(255,193,7,0.1);border-left:3px solid var(--amber);border-radius:4px;">
+          ⚠️ <strong>Piccola differenza:</strong> calcolo $${spreadUsd.toFixed(2)} vs SA $${saRef.toFixed(2)} (Δ ${diff>=0?'+':''}$${diff.toFixed(2)}).<br>
+          <span style="color:var(--text-dim);font-size:10px;">Probabilmente hai preso prezzi in momenti leggermente diversi. Verifica i prezzi in tempo reale.</span>
+        </div>
+      `;
+    } else {
+      comp.innerHTML = `
+        <div style="padding:8px 10px;background:rgba(255,107,107,0.1);border-left:3px solid var(--red);border-radius:4px;">
+          ❌ <strong>Grande divergenza!</strong> calcolo $${spreadUsd.toFixed(2)} vs SA $${saRef.toFixed(2)} (${diffPct>=0?'+':''}${diffPct.toFixed(1)}%).<br>
+          <span style="color:var(--text-dim);font-size:10px;">Verifica: (1) prezzi delle gambe corretti? (2) sottostanti giusti? (3) SeasonAlgo potrebbe usare una convenzione diversa per questa coppia.</span>
+        </div>
+      `;
+    }
+  } else {
+    comp.innerHTML = '';
+  }
+  
+  // Calcola il Point Price consigliato: quello che, moltiplicato per lo spread raw (priceA - priceB),
+  // darebbe il valore SA. Utile per replicare SA con il tuo sistema esistente.
+  const rawSpread = priceA - priceB;
+  if (Math.abs(rawSpread) > 0.0001 && applyBtn) {
+    const suggestedPP = spreadUsd / rawSpread;
+    applyBtn.textContent = `🎯 Applica Point Price = ${Math.round(suggestedPP)} al form`;
+    applyBtn.style.display = 'inline-block';
+    applyBtn.onclick = () => {
+      const ppEl = document.getElementById('pointPrice');
+      if (ppEl) {
+        ppEl.value = Math.round(suggestedPP);
+        ppEl.dispatchEvent(new Event('input', { bubbles: true }));
+        showToast(`✓ Point Price impostato a ${Math.round(suggestedPP)} (calcolato da SeasonAlgo)`);
+      }
+    };
+  } else if (applyBtn) {
+    applyBtn.style.display = 'none';
+  }
+}
+
+// Attacco listener a tutti i campi che influenzano il pannello SA
+['legAUnderlying','legBUnderlying','legAPrice','legBPrice','saReferenceSpread'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('input', updateSeasonAlgoPanel);
+  if (el) el.addEventListener('change', updateSeasonAlgoPanel);
+});
+// Aggiornamento iniziale
+updateSeasonAlgoPanel();
 
 // ============================================================
 // Pulsanti ± per cambiare segno (workaround tastiere mobile)
@@ -2728,8 +3169,26 @@ function compute() {
     p1 = parseFloat(document.getElementById('nearPrice').value);
     p2 = parseFloat(document.getElementById('farPrice').value);
   } else {
-    leg1Label = document.getElementById('legASymbol').value.trim() || 'GAMBA A';
-    leg2Label = document.getElementById('legBSymbol').value.trim() || 'GAMBA B';
+    // Inter-commodity: leggi dai dropdown separati per ogni gamba
+    const buildInterLabel = (prefix) => {
+      const uEl = document.getElementById(prefix + 'Underlying');
+      const monthEl = document.getElementById(prefix + 'MonthSel');
+      const yearEl = document.getElementById(prefix + 'YearSel');
+      // Fallback all'input testuale nascosto se qualcosa manca (retrocompatibilità)
+      const hiddenSymbol = document.getElementById(prefix + 'Symbol');
+      if (!uEl || !monthEl || !yearEl) return hiddenSymbol?.value.trim() || (prefix === 'legA' ? 'GAMBA A' : 'GAMBA B');
+      const uu = uEl.value;
+      const monthVal = monthEl.value;
+      const yearVal = yearEl.value;
+      if (!uu || !monthVal || !yearVal) return hiddenSymbol?.value.trim() || (prefix === 'legA' ? 'GAMBA A' : 'GAMBA B');
+      const code = monthVal.split('|')[0];
+      const monthLabel = monthVal.split('|')[1];
+      const yr2 = String(yearVal).slice(-2);
+      // Formato: "ZSX26 (NOV 2026)"
+      return `${uu}${code}${yr2} (${monthLabel} ${yearVal})`;
+    };
+    leg1Label = buildInterLabel('legA');
+    leg2Label = buildInterLabel('legB');
     p1 = parseFloat(document.getElementById('legAPrice').value);
     p2 = parseFloat(document.getElementById('legBPrice').value);
   }
@@ -4101,10 +4560,30 @@ function loadTradeIntoForm(r) {
     if (r.p2 !== null) document.getElementById('farPrice').value = r.p2;
     updateCMECodeHints();
   } else {
+    // Inter-commodity: mantengo l'hidden input per retrocompatibilità
     document.getElementById('legASymbol').value = r.leg1 || '';
     document.getElementById('legBSymbol').value = r.leg2 || '';
     if (r.p1 !== null) document.getElementById('legAPrice').value = r.p1;
     if (r.p2 !== null) document.getElementById('legBPrice').value = r.p2;
+    // Parso le label per pre-selezionare i dropdown
+    const parsedA = parseLegLabel(r.leg1 || '');
+    const parsedB = parseLegLabel(r.leg2 || '');
+    if (parsedA) {
+      // Prova a selezionare il sottostante nel dropdown; se non esiste, lascia il default
+      const uSel = document.getElementById('legAUnderlying');
+      const opt = Array.from(uSel.options).find(o => o.value === parsedA.underlying);
+      if (opt) uSel.value = parsedA.underlying;
+      if (parsedA.monthValue) document.getElementById('legAMonthSel').value = parsedA.monthValue;
+      if (parsedA.year) document.getElementById('legAYearSel').value = parsedA.year;
+    }
+    if (parsedB) {
+      const uSel = document.getElementById('legBUnderlying');
+      const opt = Array.from(uSel.options).find(o => o.value === parsedB.underlying);
+      if (opt) uSel.value = parsedB.underlying;
+      if (parsedB.monthValue) document.getElementById('legBMonthSel').value = parsedB.monthValue;
+      if (parsedB.year) document.getElementById('legBYearSel').value = parsedB.year;
+    }
+    updateCMECodeHints();
   }
 
   // View
