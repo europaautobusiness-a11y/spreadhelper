@@ -1806,6 +1806,30 @@
           <button type="button" class="btn secondary" id="saApplyPointPrice" style="margin-top:8px;font-size:12px;padding:6px 12px;display:none;">
             🎯 Applica Point Price calcolato al form
           </button>
+          <button type="button" class="btn secondary" id="saOpenReverseCalc" style="margin-top:8px;margin-left:6px;font-size:12px;padding:6px 12px;display:none;">
+            🧮 Calcola prezzi per spread target
+          </button>
+          
+          <!-- ═══ MINI-CALCOLATORE REVERSE ═══ -->
+          <div id="saReverseCalcBox" style="display:none;margin-top:14px;padding:12px;background:var(--bg);border:1px solid var(--border-bright);border-radius:8px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+              <div style="font-size:12px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:0.08em;">
+                🧮 Calcolatore prezzi da spread target
+              </div>
+              <button type="button" id="saCloseReverseCalc" style="background:transparent;border:none;color:var(--text-faint);cursor:pointer;font-size:16px;padding:0 4px;">✕</button>
+            </div>
+            <div style="font-size:11px;color:var(--text-dim);margin-bottom:10px;line-height:1.5;">
+              Inserisci il valore SA che vuoi raggiungere. L'app calcola come devono muoversi entrambe le gambe <strong>proporzionalmente</strong>, mantenendo lo stesso ratio.
+            </div>
+            <div class="field" style="margin-bottom:8px;">
+              <label style="font-size:11px;">🎯 Spread SA obiettivo ($)</label>
+              <input type="number" id="saTargetSpread" step="0.01" inputmode="decimal" placeholder="es. 3650">
+            </div>
+            <div id="saReverseOutput" style="font-size:12px;color:var(--text-dim);margin-top:8px;"></div>
+            <button type="button" class="btn secondary" id="saApplyReversePrices" style="margin-top:10px;font-size:11px;padding:6px 12px;display:none;">
+              ✓ Sostituisci i prezzi delle gambe con questi valori
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -1828,9 +1852,9 @@
       <div class="row">
         <div class="field"><label>N. Spread</label><input type="number" id="qty" min="1" value="1" inputmode="numeric"></div>
         <div class="field">
-          <label>Point Price ($)</label>
+          <label id="pointPriceLabel">Point Price ($)</label>
           <input type="number" id="pointPrice" step="1" value="1000" inputmode="numeric">
-          <span class="hint">Valore di 1 punto</span>
+          <span class="hint" id="pointPriceHint">Valore di 1 punto</span>
         </div>
       </div>
     </div>
@@ -1849,20 +1873,20 @@
       </div>
       <div class="row">
         <div class="field">
-          <label>Target Spread</label>
+          <label id="targetSpreadLabel">Target Spread</label>
           <div class="input-with-sign">
             <input type="number" id="targetSpread" step="0.01" inputmode="decimal" placeholder="2.00">
             <button type="button" class="sign-btn" data-target="targetSpread" aria-label="Cambia segno">+</button>
           </div>
-          <span class="hint">Tap ± per rendere negativo</span>
+          <span class="hint" id="targetSpreadHint">Tap ± per rendere negativo</span>
         </div>
         <div class="field">
-          <label>Stop Loss</label>
+          <label id="stopSpreadLabel">Stop Loss</label>
           <div class="input-with-sign">
             <input type="number" id="stopSpread" step="0.01" inputmode="decimal" placeholder="0.50">
             <button type="button" class="sign-btn" data-target="stopSpread" aria-label="Cambia segno">+</button>
           </div>
-          <span class="hint">Tap ± per rendere negativo</span>
+          <span class="hint" id="stopSpreadHint">Tap ± per rendere negativo</span>
         </div>
       </div>
     </div>
@@ -2723,6 +2747,8 @@ spreadType.addEventListener('change', () => {
   document.getElementById('exitFieldsCalendar').style.display = isCal ? 'grid' : 'none';
   document.getElementById('exitFieldsInter').style.display = isCal ? 'none' : 'grid';
   document.getElementById('legsTitle').textContent = isCal ? 'Le Due Gambe' : 'Le Due Materie';
+  // Aggiorna la modalità SA (attiva/disattiva label e placeholder)
+  if (typeof updateSeasonAlgoPanel === 'function') updateSeasonAlgoPanel();
 });
 
 let lastResult = null;
@@ -2990,7 +3016,7 @@ function updateCMECodeHints() {
 // ============================================================
 // PANNELLO "Riferimento SeasonAlgo" per Inter-Commodity
 // ============================================================
-function updateSeasonAlgoPanel() {
+let updateSeasonAlgoPanel = function() {
   const auto = document.getElementById('saAutoCalcOutput');
   const comp = document.getElementById('saComparisonOutput');
   const applyBtn = document.getElementById('saApplyPointPrice');
@@ -3095,7 +3121,7 @@ function updateSeasonAlgoPanel() {
   } else if (applyBtn) {
     applyBtn.style.display = 'none';
   }
-}
+};
 
 // Attacco listener a tutti i campi che influenzano il pannello SA
 ['legAUnderlying','legBUnderlying','legAPrice','legBPrice','saReferenceSpread'].forEach(id => {
@@ -3104,6 +3130,184 @@ function updateSeasonAlgoPanel() {
   if (el) el.addEventListener('change', updateSeasonAlgoPanel);
 });
 // Aggiornamento iniziale
+updateSeasonAlgoPanel();
+
+// ============================================================
+// MINI-CALCOLATORE REVERSE: dato uno spread SA target, calcola i prezzi delle gambe
+// ============================================================
+// Approccio: mantieni il RATIO tra i prezzi. Trova k tale che:
+//   (k × priceA) × sizeA − (k × priceB) × sizeB = targetSpread
+//   k × (priceA × sizeA − priceB × sizeB) = targetSpread
+//   k × spread_attuale = targetSpread
+//   k = targetSpread / spread_attuale
+// Nuovi prezzi: newA = priceA × k, newB = priceB × k
+// Nota: questo mantiene esattamente il ratio priceA/priceB
+function calcReversePrices(targetSpreadUsd) {
+  const uA = document.getElementById('legAUnderlying')?.value;
+  const uB = document.getElementById('legBUnderlying')?.value;
+  const priceA = parseFloat(document.getElementById('legAPrice')?.value);
+  const priceB = parseFloat(document.getElementById('legBPrice')?.value);
+  if (!uA || !uB || isNaN(priceA) || isNaN(priceB)) return null;
+  const specA = CONTRACT_SPECS[uA];
+  const specB = CONTRACT_SPECS[uB];
+  if (!specA || !specB) return null;
+  const currentSpread = (priceA * specA.pointVal) - (priceB * specB.pointVal);
+  if (Math.abs(currentSpread) < 0.0001) return null;
+  const k = targetSpreadUsd / currentSpread;
+  const newPriceA = priceA * k;
+  const newPriceB = priceB * k;
+  const deltaA = newPriceA - priceA;
+  const deltaB = newPriceB - priceB;
+  const deltaAPct = (deltaA / priceA) * 100;
+  const deltaBPct = (deltaB / priceB) * 100;
+  return { k, newPriceA, newPriceB, deltaA, deltaB, deltaAPct, deltaBPct, currentSpread, targetSpread: targetSpreadUsd, uA, uB, specA, specB };
+}
+
+function updateReverseCalcOutput() {
+  const out = document.getElementById('saReverseOutput');
+  const applyBtn = document.getElementById('saApplyReversePrices');
+  if (!out) return;
+  const target = parseFloat(document.getElementById('saTargetSpread')?.value);
+  if (isNaN(target)) {
+    out.innerHTML = '<em>Inserisci lo spread SA obiettivo per vedere il calcolo.</em>';
+    if (applyBtn) applyBtn.style.display = 'none';
+    return;
+  }
+  const r = calcReversePrices(target);
+  if (!r) {
+    out.innerHTML = '<em>⚠️ Servono prezzi validi in entrambe le gambe prima di calcolare.</em>';
+    if (applyBtn) applyBtn.style.display = 'none';
+    return;
+  }
+  // Verifica: ricalcola per sicurezza
+  const verify = (r.newPriceA * r.specA.pointVal) - (r.newPriceB * r.specB.pointVal);
+  const decimalsA = r.uA.startsWith('6J') ? 5 : 4;
+  const decimalsB = r.uB.startsWith('6J') ? 5 : 4;
+  
+  out.innerHTML = `
+    <div style="font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.7;background:var(--bg-elev);padding:10px;border-radius:6px;">
+      <div style="color:var(--text-faint);margin-bottom:6px;">Movimento proporzionale (fattore k = ${r.k.toFixed(6)}):</div>
+      <div>
+        <strong style="color:var(--text);">${r.uA}</strong>: 
+        <span style="text-decoration:line-through;color:var(--text-faint);">${(r.newPriceA - r.deltaA).toFixed(decimalsA)}</span> → 
+        <span style="color:var(--blue);font-size:13px;font-weight:700;">${r.newPriceA.toFixed(decimalsA)}</span>
+        <span style="color:${r.deltaA>=0?'var(--green)':'var(--red)'};font-size:10px;">
+          (${r.deltaA>=0?'+':''}${r.deltaA.toFixed(decimalsA)} · ${r.deltaAPct>=0?'+':''}${r.deltaAPct.toFixed(2)}%)
+        </span>
+      </div>
+      <div>
+        <strong style="color:var(--text);">${r.uB}</strong>: 
+        <span style="text-decoration:line-through;color:var(--text-faint);">${(r.newPriceB - r.deltaB).toFixed(decimalsB)}</span> → 
+        <span style="color:var(--blue);font-size:13px;font-weight:700;">${r.newPriceB.toFixed(decimalsB)}</span>
+        <span style="color:${r.deltaB>=0?'var(--green)':'var(--red)'};font-size:10px;">
+          (${r.deltaB>=0?'+':''}${r.deltaB.toFixed(decimalsB)} · ${r.deltaBPct>=0?'+':''}${r.deltaBPct.toFixed(2)}%)
+        </span>
+      </div>
+      <div style="border-top:1px dashed var(--border);margin-top:6px;padding-top:6px;">
+        Verifica: (${r.newPriceA.toFixed(decimalsA)} × $${r.specA.pointVal.toLocaleString('en-US')}) − (${r.newPriceB.toFixed(decimalsB)} × $${r.specB.pointVal.toLocaleString('en-US')}) = 
+        <strong style="color:${Math.abs(verify - target) < 1 ? 'var(--green)' : 'var(--red)'};">$${verify.toFixed(2)}</strong>
+        ${Math.abs(verify - target) < 1 ? '✓' : ''}
+      </div>
+    </div>
+    <div style="margin-top:8px;padding:8px 10px;background:rgba(33,150,243,0.08);border-left:3px solid var(--blue);border-radius:4px;font-size:11px;color:var(--text-dim);">
+      💡 Questi sono i prezzi <strong>proporzionali</strong> (stesso ratio ${r.uA}/${r.uB}). In pratica il mercato non si muove sempre così — usa questi valori come riferimento indicativo, poi verifica i prezzi reali su TWS quando piazzi l'ordine.
+    </div>
+  `;
+  if (applyBtn) applyBtn.style.display = 'inline-block';
+}
+
+// Handler apertura mini-calcolatore
+const openBtn = document.getElementById('saOpenReverseCalc');
+const closeBtn = document.getElementById('saCloseReverseCalc');
+const box = document.getElementById('saReverseCalcBox');
+const targetInput = document.getElementById('saTargetSpread');
+const applyReverseBtn = document.getElementById('saApplyReversePrices');
+
+if (openBtn) openBtn.addEventListener('click', () => {
+  if (box) box.style.display = 'block';
+  // Pre-compilo con lo spread SA di riferimento se esiste
+  const saRef = parseFloat(document.getElementById('saReferenceSpread')?.value);
+  if (!isNaN(saRef) && targetInput && !targetInput.value) targetInput.value = saRef;
+  updateReverseCalcOutput();
+  setTimeout(() => targetInput?.focus(), 100);
+});
+if (closeBtn) closeBtn.addEventListener('click', () => {
+  if (box) box.style.display = 'none';
+});
+if (targetInput) targetInput.addEventListener('input', updateReverseCalcOutput);
+
+// Handler applicazione prezzi calcolati alle gambe
+if (applyReverseBtn) applyReverseBtn.addEventListener('click', () => {
+  const target = parseFloat(document.getElementById('saTargetSpread')?.value);
+  if (isNaN(target)) return;
+  const r = calcReversePrices(target);
+  if (!r) return;
+  const decA = r.uA.startsWith('6J') ? 5 : 4;
+  const decB = r.uB.startsWith('6J') ? 5 : 4;
+  const legA = document.getElementById('legAPrice');
+  const legB = document.getElementById('legBPrice');
+  if (legA) { legA.value = r.newPriceA.toFixed(decA); legA.dispatchEvent(new Event('input', { bubbles: true })); }
+  if (legB) { legB.value = r.newPriceB.toFixed(decB); legB.dispatchEvent(new Event('input', { bubbles: true })); }
+  showToast(`✓ Prezzi aggiornati: spread SA = $${target.toFixed(2)}`);
+  updateSeasonAlgoPanel();
+  updateReverseCalcOutput();
+});
+
+// Mostro il pulsante "Calcola prezzi per spread target" quando ci sono prezzi validi
+const origUpdateSA = updateSeasonAlgoPanel;
+updateSeasonAlgoPanel = function() {
+  origUpdateSA();
+  const reverseBtn = document.getElementById('saOpenReverseCalc');
+  const uA = document.getElementById('legAUnderlying')?.value;
+  const uB = document.getElementById('legBUnderlying')?.value;
+  const priceA = parseFloat(document.getElementById('legAPrice')?.value);
+  const priceB = parseFloat(document.getElementById('legBPrice')?.value);
+  const isInterMarket = document.getElementById('spreadType')?.value === 'intercommodity';
+  const hasValidSpecs = CONTRACT_SPECS[uA] && CONTRACT_SPECS[uB];
+  const saModeActive = isInterMarket && hasValidSpecs && !isNaN(priceA) && !isNaN(priceB);
+  
+  if (reverseBtn) {
+    reverseBtn.style.display = saModeActive ? 'inline-block' : 'none';
+  }
+  // In modalità SA il Point Price è forzato a 1 → nascondo il pulsante "Applica Point Price"
+  const applyPPBtn = document.getElementById('saApplyPointPrice');
+  if (applyPPBtn && saModeActive) applyPPBtn.style.display = 'none';
+  
+  // ═══ Aggiorna label/placeholder/hint dei campi in base alla modalità ═══
+  const ppLabel = document.getElementById('pointPriceLabel');
+  const ppHint = document.getElementById('pointPriceHint');
+  const ppInput = document.getElementById('pointPrice');
+  const tgtLabel = document.getElementById('targetSpreadLabel');
+  const tgtHint = document.getElementById('targetSpreadHint');
+  const tgtInput = document.getElementById('targetSpread');
+  const stpLabel = document.getElementById('stopSpreadLabel');
+  const stpHint = document.getElementById('stopSpreadHint');
+  const stpInput = document.getElementById('stopSpread');
+  
+  if (saModeActive) {
+    // Modalità SA: bloccato point price, target/stop in dollari SA
+    if (ppLabel) ppLabel.innerHTML = 'Point Price 🔒';
+    if (ppHint) ppHint.innerHTML = '<span style="color:var(--blue);">📊 Modalità SA: forzato a 1 (i target sono già in $)</span>';
+    if (ppInput) { ppInput.value = 1; ppInput.disabled = true; ppInput.style.opacity = '0.6'; }
+    if (tgtLabel) tgtLabel.innerHTML = 'Target ($ SeasonAlgo)';
+    if (tgtHint) tgtHint.innerHTML = 'Valore SA che vuoi raggiungere';
+    if (tgtInput) tgtInput.placeholder = 'es. 3600';
+    if (stpLabel) stpLabel.innerHTML = 'Stop Loss ($ SeasonAlgo)';
+    if (stpHint) stpHint.innerHTML = 'Valore SA di uscita in perdita';
+    if (stpInput) stpInput.placeholder = 'es. 5000';
+  } else {
+    // Modalità classica
+    if (ppLabel) ppLabel.textContent = 'Point Price ($)';
+    if (ppHint) ppHint.textContent = 'Valore di 1 punto';
+    if (ppInput) { ppInput.disabled = false; ppInput.style.opacity = ''; }
+    if (tgtLabel) tgtLabel.textContent = 'Target Spread';
+    if (tgtHint) tgtHint.textContent = 'Tap ± per rendere negativo';
+    if (tgtInput) tgtInput.placeholder = '2.00';
+    if (stpLabel) stpLabel.textContent = 'Stop Loss';
+    if (stpHint) stpHint.textContent = 'Tap ± per rendere negativo';
+    if (stpInput) stpInput.placeholder = '0.50';
+  }
+};
 updateSeasonAlgoPanel();
 
 // ============================================================
@@ -3147,7 +3351,7 @@ function compute() {
   const isCal = spreadType.value === 'calendar';
   const view = document.getElementById('view').value;
   const qty = parseInt(document.getElementById('qty').value) || 1;
-  const pointPrice = parseFloat(document.getElementById('pointPrice').value) || 1000;
+  let pointPrice = parseFloat(document.getElementById('pointPrice').value) || 1000;
 
   let leg1Label, leg2Label, p1, p2;
   if (isCal) {
@@ -3212,7 +3416,35 @@ function compute() {
     action = (view === 'widen' || view === 'bull-near') ? 'BUY' : 'SELL';
   }
 
-  const spreadPrice = (!isNaN(p1) && !isNaN(p2)) ? (p1 - p2) : null;
+  // ═══ MODALITÀ "DOLLARI SEASONALGO" per Inter-Commodity ═══
+  // Se siamo su Inter-Commodity e i due sottostanti sono nel database delle contract size,
+  // usiamo la formula SeasonAlgo: spread in dollari = (priceA × sizeA) - (priceB × sizeB)
+  // Point Price forzato a 1 → target/stop si inseriscono già in dollari SA
+  let usingSAMode = false;
+  let spreadPrice = null;
+  if (!isCal && !isNaN(p1) && !isNaN(p2)) {
+    const uA_check = document.getElementById('legAUnderlying')?.value;
+    const uB_check = document.getElementById('legBUnderlying')?.value;
+    const specA_c = CONTRACT_SPECS[uA_check];
+    const specB_c = CONTRACT_SPECS[uB_check];
+    if (specA_c && specB_c) {
+      // Modalità SA attiva
+      usingSAMode = true;
+      spreadPrice = (p1 * specA_c.pointVal) - (p2 * specB_c.pointVal);
+      // Forzo point price a 1 (i valori sono già in dollari)
+      pointPrice = 1;
+      const ppEl = document.getElementById('pointPrice');
+      if (ppEl && parseFloat(ppEl.value) !== 1) {
+        ppEl.value = 1;
+      }
+    } else {
+      // Fallback vecchia modalità: spread grezzo dai prezzi
+      spreadPrice = p1 - p2;
+    }
+  } else if (!isNaN(p1) && !isNaN(p2)) {
+    // Calendar spread: comportamento invariato
+    spreadPrice = p1 - p2;
+  }
   const buyLeg = action === 'BUY' ? leg1Label : leg2Label;
   const sellLeg = action === 'BUY' ? leg2Label : leg1Label;
   const buyPrice = action === 'BUY' ? p1 : p2;
@@ -3221,12 +3453,30 @@ function compute() {
   let pricingExplain = '';
   if (spreadPrice !== null) {
     const sign = spreadPrice >= 0 ? '+' : '';
-    pricingExplain = `
-      <div style="margin-top: 10px;">
-        <span style="color: var(--text-faint);">Prezzo combo IB:</span> <strong class="mono">${sign}${spreadPrice.toFixed(4)}</strong>
-        ${spreadPrice < 0 ? '<div style="color: var(--amber); font-size:11px; margin-top:4px;">⚠ Negativo: Leg2 vale più di Leg1. Normale.</div>' : ''}
-        <div style="color: var(--text-faint); font-size:11px; margin-top:4px;">Esposizione: <span class="mono" style="color:var(--text);">${PRICE_SYMBOL}${(qty * pointPrice).toLocaleString()}</span> per punto</div>
-      </div>`;
+    if (usingSAMode) {
+      // Modalità SeasonAlgo: mostro spread in dollari + spiegazione chiara
+      pricingExplain = `
+        <div style="margin-top: 10px; padding: 10px 12px; background: linear-gradient(135deg, rgba(33,150,243,0.1), rgba(33,150,243,0.03)); border-left: 3px solid var(--blue); border-radius: 6px;">
+          <div style="font-size:11px;color:var(--blue);text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin-bottom:6px;">
+            📊 Modalità SeasonAlgo attiva
+          </div>
+          <div style="color: var(--text-faint); font-size:12px;">Spread SA di ingresso:</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:800;color:${spreadPrice>=0?'var(--green)':'var(--red)'};">
+            ${sign}$${spreadPrice.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}
+          </div>
+          <div style="font-size:11px;color:var(--text-faint);margin-top:6px;line-height:1.5;">
+            👉 Inserisci <strong style="color:var(--text-dim);">Target</strong> e <strong style="color:var(--text-dim);">Stop Loss</strong> direttamente in <strong style="color:var(--blue);">dollari SA</strong> (es. 3600, 5000).
+            Point Price forzato a <strong>1</strong>.
+          </div>
+        </div>`;
+    } else {
+      pricingExplain = `
+        <div style="margin-top: 10px;">
+          <span style="color: var(--text-faint);">Prezzo combo IB:</span> <strong class="mono">${sign}${spreadPrice.toFixed(4)}</strong>
+          ${spreadPrice < 0 ? '<div style="color: var(--amber); font-size:11px; margin-top:4px;">⚠ Negativo: Leg2 vale più di Leg1. Normale.</div>' : ''}
+          <div style="color: var(--text-faint); font-size:11px; margin-top:4px;">Esposizione: <span class="mono" style="color:var(--text);">${PRICE_SYMBOL}${(qty * pointPrice).toLocaleString()}</span> per punto</div>
+        </div>`;
+    }
   }
 
   const cssClass = action === 'BUY' ? 'buy' : 'sell';
