@@ -2778,6 +2778,18 @@ function getCurrentCapital() {
   return globalCapital + cumulativePnl;
 }
 
+// Wrapper safe: usa il capitale dinamico se possibile, altrimenti quello iniziale
+// Non lancia MAI eccezioni: garantisce che il rendering non si blocchi
+function safeCurrentCapital() {
+  try {
+    const v = getCurrentCapital();
+    return (typeof v === 'number' && !isNaN(v)) ? v : (globalCapital || 0);
+  } catch (e) {
+    console.warn('safeCurrentCapital fallback su globalCapital:', e && e.message);
+    return globalCapital || 0;
+  }
+}
+
 // P&L realizzato cumulativo (senza il capitale iniziale)
 function getRealizedPnl() {
   const cur = getCurrentCapital();
@@ -3561,7 +3573,7 @@ function compute() {
     const exitDateTarget = document.getElementById('exitDateTarget').value;
     const targetSpread = parseFloat(document.getElementById('targetSpread').value);
     const stopSpread = parseFloat(document.getElementById('stopSpread').value);
-    const capital = globalCapital; // capitale iniziale (statico)
+    const capital = safeCurrentCapital(); // capitale dinamico safe (iniziale + P&L realizzati)
     const spanMargin = parseFloat(document.getElementById('spanMargin').value);
     const maintenanceMargin = parseFloat(document.getElementById('maintenanceMargin').value);
     const riskPct = parseFloat(document.getElementById('riskPct').value) || 2;
@@ -4337,7 +4349,7 @@ document.getElementById('runRiskBtn').addEventListener('click', async () => {
   }
 
   // Stress test scenarios
-  const cap = globalCapital || 0;
+  const cap = safeCurrentCapital();
   const scenarios = [
     { name: '🟢 Stress lieve: -10% sui trade aperti', mult: 0.10 },
     { name: '🟡 Stress medio: -25% sui trade aperti', mult: 0.25 },
@@ -5069,7 +5081,7 @@ async function renderRiskDashboard() {
   // ⚠️ IMPORTANTE: SPAN margins vengono inseriti dall'utente nella valuta del suo conto IBKR
   // (EUR per conto base EUR italiano, USD per conto base USD).
   // Quindi capitale e margini sono nella stessa valuta = nessuna conversione per le percentuali!
-  const cap = globalCapital || 0; // in currencyCode (es. EUR)
+  const cap = safeCurrentCapital(); // dinamico (iniziale + P&L realizzati), in currencyCode (es. EUR)
   const accountCurr = currencyCode || 'EUR';
   const accountSymb = currencySymbol || '€';
   const rate = currentExchangeRate?.rate || 1.14; // EUR → USD
@@ -6002,7 +6014,7 @@ function openDetailsModal(r) {
                            r.entryDate, r.exitDateTarget, r.targetSpread, r.stopSpread);
     payoff = buildPayoffChart(action, spreadPrice, qty, pointPrice);
     projection = buildProjection(action, spreadPrice, qty, pointPrice, r.targetSpread, r.stopSpread);
-    marginRisk = buildMarginRisk(action, spreadPrice, qty, pointPrice, r.stopSpread, globalCapital, r.spanMargin, r.maintenanceMargin, r.riskPct || 2);
+    marginRisk = buildMarginRisk(action, spreadPrice, qty, pointPrice, r.stopSpread, safeCurrentCapital(), r.spanMargin, r.maintenanceMargin, r.riskPct || 2);
   }
 
   // P&L reale se ci sono prezzi di uscita
