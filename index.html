@@ -2746,7 +2746,41 @@ spreadType.addEventListener('change', () => {
 
 let lastResult = null;
 let editingId = null; // se non-null, sto modificando un trade esistente
-let globalCapital = null; // capitale conto IB, salvato in settings
+let globalCapital = null; // capitale conto IB INIZIALE, salvato in settings
+
+// ============================================================
+// CAPITALE ATTUALE (DINAMICO): iniziale + Σ P&L reali dei trade CHIUSI
+// ============================================================
+// Il capitale iniziale in Settings resta come "punto di partenza".
+// Tutti i calcoli percentuali (margine %, cushion, rischio) usano
+// questa funzione per avere sempre il capitale aggiornato ai P&L realizzati.
+function getCurrentCapital() {
+  if (!globalCapital) return null;
+  if (!Array.isArray(records) || records.length === 0) return globalCapital;
+  const accountCurr = currencyCode || 'EUR';
+  const rate = (currentExchangeRate && currentExchangeRate.rate) || 1.14;
+  let cumulativePnl = 0;
+  for (const t of records) {
+    if (t.status !== 'closed') continue;
+    if (t.pnlReal === null || t.pnlReal === undefined || isNaN(t.pnlReal)) continue;
+    let pnl = parseFloat(t.pnlReal);
+    const pnlCurr = t.pnlRealCurrency || accountCurr;
+    // Conversione se il P&L è in una valuta diversa dal conto
+    if (pnlCurr !== accountCurr) {
+      if (pnlCurr === 'USD' && accountCurr === 'EUR') pnl = pnl / rate;
+      else if (pnlCurr === 'EUR' && accountCurr === 'USD') pnl = pnl * rate;
+    }
+    cumulativePnl += pnl;
+  }
+  return globalCapital + cumulativePnl;
+}
+
+// P&L realizzato cumulativo (senza il capitale iniziale)
+function getRealizedPnl() {
+  const cur = getCurrentCapital();
+  if (cur === null || globalCapital === null) return 0;
+  return cur - globalCapital;
+}
 // 💱 SEPARAZIONE VALUTE:
 // - PRICE_SYMBOL/PRICE_CURRENCY: valuta dei PREZZI degli strumenti (CME futures = SEMPRE USD)
 // - currencyCode/currencySymbol: valuta del CONTO IBKR dell'utente (per P&L globale e statistiche)
@@ -2909,8 +2943,27 @@ function updateCapitalUI() {
   const v = document.getElementById('globalCapitalValue');
   const ref = document.getElementById('capitalRef');
   if (globalCapital && globalCapital > 0) {
-    v.textContent = fmtCur(globalCapital, 0);
-    if (ref) ref.innerHTML = `Capitale impostato: <strong style="color:var(--green);">${fmtCur(globalCapital, 0)}</strong> (modifica in Impostazioni)`;
+    const currentCap = getCurrentCapital();
+    const realizedPnl = getRealizedPnl();
+    const hasPnl = Math.abs(realizedPnl) > 0.01;
+    
+    if (hasPnl) {
+      // Mostro il capitale attuale (con P&L) + breakdown
+      const pnlColor = realizedPnl >= 0 ? 'var(--green)' : 'var(--red)';
+      const pnlSign = realizedPnl >= 0 ? '+' : '';
+      v.innerHTML = `
+        <div>${fmtCur(currentCap, 0)}</div>
+        <div style="font-size:11px;font-weight:400;color:var(--text-faint);margin-top:4px;">
+          Iniziale ${fmtCur(globalCapital, 0)} · 
+          P&L realizzato <span style="color:${pnlColor};font-weight:700;">${pnlSign}${fmtCur(realizedPnl, 0)}</span>
+        </div>
+      `;
+      if (ref) ref.innerHTML = `Capitale attuale: <strong style="color:var(--green);">${fmtCur(currentCap, 0)}</strong> (iniziale ${fmtCur(globalCapital, 0)} + P&L ${pnlSign}${fmtCur(realizedPnl, 0)})`;
+    } else {
+      // Nessun P&L realizzato: solo capitale iniziale
+      v.textContent = fmtCur(globalCapital, 0);
+      if (ref) ref.innerHTML = `Capitale impostato: <strong style="color:var(--green);">${fmtCur(globalCapital, 0)}</strong> (modifica in Impostazioni)`;
+    }
   } else {
     v.textContent = '— non impostato —';
     if (ref) ref.innerHTML = `⚠️ <span style="color:var(--amber);">Capitale non impostato</span> — vai in Impostazioni per impostarlo`;
@@ -3496,7 +3549,7 @@ function compute() {
     const exitDateTarget = document.getElementById('exitDateTarget').value;
     const targetSpread = parseFloat(document.getElementById('targetSpread').value);
     const stopSpread = parseFloat(document.getElementById('stopSpread').value);
-    const capital = globalCapital; // dal settings globale
+    const capital = getCurrentCapital(); // capitale dinamico: iniziale + P&L realizzati
     const spanMargin = parseFloat(document.getElementById('spanMargin').value);
     const maintenanceMargin = parseFloat(document.getElementById('maintenanceMargin').value);
     const riskPct = parseFloat(document.getElementById('riskPct').value) || 2;
@@ -4272,7 +4325,7 @@ document.getElementById('runRiskBtn').addEventListener('click', async () => {
   }
 
   // Stress test scenarios
-  const cap = globalCapital || 0;
+  const cap = getCurrentCapital() || 0;
   const scenarios = [
     { name: '🟢 Stress lieve: -10% sui trade aperti', mult: 0.10 },
     { name: '🟡 Stress medio: -25% sui trade aperti', mult: 0.25 },
@@ -5002,7 +5055,7 @@ async function renderRiskDashboard() {
   // ⚠️ IMPORTANTE: SPAN margins vengono inseriti dall'utente nella valuta del suo conto IBKR
   // (EUR per conto base EUR italiano, USD per conto base USD).
   // Quindi capitale e margini sono nella stessa valuta = nessuna conversione per le percentuali!
-  const cap = globalCapital || 0; // in currencyCode (es. EUR)
+  const cap = getCurrentCapital() || 0; // in currencyCode (es. EUR) - dinamico con P&L realizzati
   const accountCurr = currencyCode || 'EUR';
   const accountSymb = currencySymbol || '€';
   const rate = currentExchangeRate?.rate || 1.14; // EUR → USD
@@ -5836,6 +5889,7 @@ function attachQuickCloseHandlers() {
     closeQuickCloseModal();
     await renderReminders();
     await updateBadge();
+    updateCapitalUI(); // Aggiorna capitale attuale con il nuovo P&L
     if (!isNaN(realPnl)) {
       const sign = realPnl >= 0 ? '+' : '';
       const symb = realPnlCurrency === 'EUR' ? '€' : '$';
@@ -5876,6 +5930,7 @@ function attachQuickCloseHandlers() {
     closeQuickCloseModal();
     await renderReminders();
     await updateBadge();
+    updateCapitalUI(); // Aggiorna capitale attuale con il nuovo P&L
     // Mostra preferibilmente il P&L reale, altrimenti quello stimato
     const finalPnl = hasReal ? realPnl : t.pnl;
     const sign = finalPnl >= 0 ? '+' : '';
@@ -5932,7 +5987,7 @@ function openDetailsModal(r) {
                            r.entryDate, r.exitDateTarget, r.targetSpread, r.stopSpread);
     payoff = buildPayoffChart(action, spreadPrice, qty, pointPrice);
     projection = buildProjection(action, spreadPrice, qty, pointPrice, r.targetSpread, r.stopSpread);
-    marginRisk = buildMarginRisk(action, spreadPrice, qty, pointPrice, r.stopSpread, globalCapital, r.spanMargin, r.maintenanceMargin, r.riskPct || 2);
+    marginRisk = buildMarginRisk(action, spreadPrice, qty, pointPrice, r.stopSpread, getCurrentCapital(), r.spanMargin, r.maintenanceMargin, r.riskPct || 2);
   }
 
   // P&L reale se ci sono prezzi di uscita
