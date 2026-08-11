@@ -2765,15 +2765,30 @@ function getCurrentCapital() {
   let cumulativePnl = 0;
   for (const t of _cachedTrades) {
     if (!t || t.status !== 'closed') continue;
-    if (t.pnlReal === null || t.pnlReal === undefined || isNaN(t.pnlReal)) continue;
-    let pnl = parseFloat(t.pnlReal);
-    const pnlCurr = t.pnlRealCurrency || accountCurr;
-    // Conversione se il P&L è in una valuta diversa dal conto
-    if (pnlCurr !== accountCurr) {
-      if (pnlCurr === 'USD' && accountCurr === 'EUR') pnl = pnl / rate;
-      else if (pnlCurr === 'EUR' && accountCurr === 'USD') pnl = pnl * rate;
+    let pnl = null;
+    // Priorità 1: usa il pnlReal se presente
+    if (t.pnlReal !== null && t.pnlReal !== undefined && !isNaN(t.pnlReal)) {
+      const realCurr = t.pnlRealCurrency || 'EUR';
+      pnl = parseFloat(t.pnlReal);
+      if (realCurr !== accountCurr) {
+        if (realCurr === 'USD' && accountCurr === 'EUR') pnl = pnl / rate;
+        else if (realCurr === 'EUR' && accountCurr === 'USD') pnl = pnl * rate;
+      }
+    } else if (t.exitP1 !== null && t.exitP1 !== undefined && t.exitP2 !== null && t.exitP2 !== undefined) {
+      // Priorità 2: calcola P&L stimato dai prezzi di uscita (come fa la Dashboard)
+      // Questo garantisce che getCurrentCapital e Dashboard vedano lo stesso totale P&L
+      const exitSpread = t.exitP1 - t.exitP2;
+      const entrySpread = (t.realSpread !== null && t.realSpread !== undefined) ? t.realSpread : t.spread;
+      if (entrySpread !== null && entrySpread !== undefined && t.qty && t.pointPrice) {
+        const moveSpread = exitSpread - entrySpread;
+        const pnlUsd = (t.action === 'BUY' ? moveSpread : -moveSpread) * t.qty * t.pointPrice;
+        // Converti USD → valuta del conto (i prezzi CME sono in USD)
+        if (accountCurr === 'USD') pnl = pnlUsd;
+        else if (accountCurr === 'EUR') pnl = pnlUsd / rate;
+        else pnl = pnlUsd;
+      }
     }
-    cumulativePnl += pnl;
+    if (pnl !== null && !isNaN(pnl)) cumulativePnl += pnl;
   }
   return globalCapital + cumulativePnl;
 }
