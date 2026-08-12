@@ -2394,6 +2394,22 @@
     </div>
 
     <div class="card">
+      <div class="card-title">📊 Benchmark S&amp;P 500</div>
+      <p style="font-size: 13px; color: var(--text-dim); margin-bottom: 12px;">
+        Rendimento YTD dell'S&amp;P 500 usato nel Dashboard per confronto. Aggiornalo periodicamente 
+        (Google "S&amp;P 500 YTD return") per avere un confronto accurato.
+      </p>
+      <div class="field">
+        <label>S&amp;P 500 YTD (%)</label>
+        <input type="number" id="sp500YtdInput" step="0.1" inputmode="decimal" placeholder="14.0">
+        <span class="hint">Es. 14.5 per +14.5% da inizio anno. Lascia vuoto per usare il default (${SP500_YTD_PCT}%).</span>
+      </div>
+      <div class="btn-row" style="margin-top: 10px;">
+        <button class="btn" id="saveSp500Btn">Salva</button>
+      </div>
+    </div>
+
+    <div class="card">
       <div class="card-title">📦 Archiviazione Locale</div>
       <div class="storage-info" id="storageInfo">Caricamento info storage...</div>
       <div class="callout">
@@ -2811,6 +2827,58 @@ function getRealizedPnl() {
   if (cur === null || globalCapital === null) return 0;
   return cur - globalCapital;
 }
+
+// ============================================================
+// BENCHMARK S&P 500 (YTD %)
+// ============================================================
+// Valore aggiornabile: rappresenta la performance dell'anno in corso
+// dell'S&P 500. Aggiornalo periodicamente da https://ycharts.com/indicators/sp_500_ytd_return
+// oppure Google "S&P 500 YTD".
+// Ultimo aggiornamento: gennaio 2026 (indicativo)
+const SP500_YTD_PCT = 14.0; // S&P 500 YTD % (modificabile in Settings)
+
+function getSp500Ytd() {
+  // Consente all'utente di sovrascrivere il valore hardcoded via settings
+  if (typeof globalSp500Ytd === 'number' && !isNaN(globalSp500Ytd)) return globalSp500Ytd;
+  return SP500_YTD_PCT;
+}
+
+// Renderizza la % di profitto YTD sotto il P&L, con confronto S&P 500
+function renderYtdPct(ytdPnl) {
+  // Usa il capitale INIZIALE come base (Metrica A: % semplice)
+  if (!globalCapital || globalCapital <= 0) return '';
+  const pct = (ytdPnl / globalCapital) * 100;
+  const sp500 = getSp500Ytd();
+  const outperform = pct - sp500;
+  const pctColor = pct >= 0 ? 'var(--green)' : 'var(--red)';
+  const pctSign = pct >= 0 ? '+' : '';
+  const sp500Sign = sp500 >= 0 ? '+' : '';
+  const outSign = outperform >= 0 ? '+' : '';
+  const outColor = outperform >= 0 ? 'var(--green)' : 'var(--red)';
+  const outIcon = outperform >= 0 ? '📈' : '📉';
+  const outText = outperform >= 0 ? 'sopra' : 'sotto';
+  const cs = currencySymbol || '€';
+  return `
+    <div style="margin-top:12px;padding:10px;background:var(--bg);border-radius:8px;border:1px solid var(--border);">
+      <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;">
+        <div>
+          <div style="font-size:10px;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Rendimento YTD</div>
+          <div style="font-size:22px;font-weight:800;font-family:'JetBrains Mono',monospace;color:${pctColor};line-height:1.2;">${pctSign}${pct.toFixed(2)}%</div>
+          <div style="font-size:10px;color:var(--text-faint);">su capitale iniziale ${cs}${globalCapital.toLocaleString('it-IT')}</div>
+        </div>
+        <div style="flex:1;min-width:120px;text-align:right;">
+          <div style="font-size:10px;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">S&P 500 YTD</div>
+          <div style="font-size:14px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--text-dim);">${sp500Sign}${sp500.toFixed(2)}%</div>
+          <div style="font-size:11px;color:${outColor};font-weight:700;margin-top:2px;">
+            ${outIcon} ${outSign}${outperform.toFixed(2)}% ${outText} benchmark
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+let globalSp500Ytd = null; // sovrascritto dalle settings se presente
 // 💱 SEPARAZIONE VALUTE:
 // - PRICE_SYMBOL/PRICE_CURRENCY: valuta dei PREZZI degli strumenti (CME futures = SEMPRE USD)
 // - currencyCode/currencySymbol: valuta del CONTO IBKR dell'utente (per P&L globale e statistiche)
@@ -2923,6 +2991,15 @@ async function loadGlobalCapital() {
   try {
     globalCapital = await getSetting('accountCapital');
   } catch(e) { globalCapital = null; }
+  // Carica anche il benchmark S&P 500 personalizzato
+  try {
+    const sp = await getSetting('sp500Ytd');
+    if (typeof sp === 'number' && !isNaN(sp)) {
+      globalSp500Ytd = sp;
+      const input = document.getElementById('sp500YtdInput');
+      if (input) input.value = sp;
+    }
+  } catch(e) {}
   updateCapitalUI();
 }
 
@@ -3034,6 +3111,30 @@ document.getElementById('saveCapitalBtn').addEventListener('click', async () => 
 document.getElementById('cancelCapitalBtn').addEventListener('click', () => {
   document.getElementById('capitalDisplay').style.display = 'flex';
   document.getElementById('capitalEditForm').style.display = 'none';
+});
+
+// ============================================================
+// Handler S&P 500 YTD benchmark
+// ============================================================
+document.getElementById('saveSp500Btn').addEventListener('click', async () => {
+  const input = document.getElementById('sp500YtdInput');
+  const raw = input.value.trim();
+  if (raw === '') {
+    // Vuoto: rimuovo la sovrascrittura, uso il default hardcoded
+    globalSp500Ytd = null;
+    try { await setSetting('sp500Ytd', null); } catch(e) {}
+    showToast(`✓ Uso il valore di default S&P 500 (${SP500_YTD_PCT}%)`);
+  } else {
+    const v = parseFloat(raw);
+    if (isNaN(v)) { alert('Inserisci un valore numerico valido'); return; }
+    globalSp500Ytd = v;
+    try {
+      await setSetting('sp500Ytd', v);
+      showToast(`✓ Benchmark S&P 500 salvato: ${v >= 0 ? '+' : ''}${v}%`);
+    } catch(e) { alert('Errore: ' + e.message); return; }
+  }
+  // Aggiorna dashboard se è aperto
+  if (typeof renderDashboard === 'function') renderDashboard();
 });
 
 // ============================================================
@@ -7096,6 +7197,7 @@ async function renderDashboard() {
       <div class="kpi-label">P&L ${now.getFullYear()}</div>
       <div class="kpi-val big ${ytdPnl>=0?'pos':'neg'}">${fmtPnl(ytdPnl, true)}${trendBadge}</div>
       <div class="kpi-sub">${ytd.length} trade chiusi · ${ytd.filter(t => t._pnl > 0).length} vincenti su ${ytd.length}</div>
+      ${renderYtdPct(ytdPnl)}
     </div>
   `;
 
