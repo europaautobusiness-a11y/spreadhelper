@@ -3760,7 +3760,7 @@ function compute() {
 // ============================================================
 // CHARTS
 // ============================================================
-function buildTimeChart(action, entrySpread, qty, pointPrice, leg1, leg2, entryDateStr, exitDateStr, targetSpread, stopSpread) {
+function buildTimeChart(action, entrySpread, qty, pointPrice, leg1, leg2, entryDateStr, exitDateStr, targetSpread, stopSpread, entriesArr) {
   const W = 700, H = 320;
   const padL = 50, padR = 14, padT = 24, padB = 50;
   const cw = W - padL - padR;
@@ -3859,8 +3859,24 @@ function buildTimeChart(action, entrySpread, qty, pointPrice, leg1, leg2, entryD
   const yEntry = yScale(entrySpread);
 
   let levels = '';
-  levels += `<line x1="${padL}" y1="${yEntry}" x2="${W-padR}" y2="${yEntry}" stroke="#5ac8ff" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.6"/>`;
-  levels += `<text x="${W-padR-4}" y="${yEntry-4}" text-anchor="end" fill="#5ac8ff" font-size="10" font-weight="700" font-family="JetBrains Mono">ENT ${entrySpread.toFixed(2)}</text>`;
+  // Se ci sono più ingressi (piramidazione), disegno una linea orizzontale per ognuno
+  // altrimenti solo la linea di ingresso principale (retrocompatibilità).
+  const entries = Array.isArray(entriesArr) && entriesArr.length > 1
+    ? entriesArr.filter(e => e && typeof e.spread === 'number' && !isNaN(e.spread))
+    : null;
+  if (entries && entries.length > 1) {
+    // Disegno una linea per ogni ingresso, con label numerata
+    entries.forEach((e, idx) => {
+      const yE = yScale(e.spread);
+      const opacity = idx === 0 ? 0.8 : 0.55; // il primo un po' più visibile
+      levels += `<line x1="${padL}" y1="${yE}" x2="${W-padR}" y2="${yE}" stroke="#5ac8ff" stroke-width="1.5" stroke-dasharray="4,4" opacity="${opacity}"/>`;
+      levels += `<text x="${W-padR-4}" y="${yE-4}" text-anchor="end" fill="#5ac8ff" font-size="10" font-weight="700" font-family="JetBrains Mono">ENT #${idx+1} ${e.spread.toFixed(2)}</text>`;
+    });
+  } else {
+    // Modalità classica: una sola linea "Entrata"
+    levels += `<line x1="${padL}" y1="${yEntry}" x2="${W-padR}" y2="${yEntry}" stroke="#5ac8ff" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.6"/>`;
+    levels += `<text x="${W-padR-4}" y="${yEntry-4}" text-anchor="end" fill="#5ac8ff" font-size="10" font-weight="700" font-family="JetBrains Mono">ENT ${entrySpread.toFixed(2)}</text>`;
+  }
   if (!isNaN(targetSpread)) {
     const yT = yScale(targetSpread);
     levels += `<line x1="${padL}" y1="${yT}" x2="${W-padR}" y2="${yT}" stroke="#00e589" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.7"/>`;
@@ -3910,8 +3926,13 @@ function buildTimeChart(action, entrySpread, qty, pointPrice, leg1, leg2, entryD
     : `SELL. Guadagni se la linea SCENDE sotto ENTRATA.`;
 
   return `
-    <div class="chart-wrap">
-      <div class="chart-title">📅 Andamento Spread nel Tempo</div>
+    <div class="chart-wrap" id="timeChartWrap">
+      <div class="chart-title" style="display:flex;justify-content:space-between;align-items:center;">
+        <span>📅 Andamento Spread nel Tempo</span>
+        <button type="button" class="chart-fullscreen-btn" onclick="openChartFullscreen()" title="Ingrandisci a schermo intero" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
+          🔍 Ingrandisci
+        </button>
+      </div>
       <div class="chart-sub">${directionLabel}</div>
       <svg class="chart-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
         ${yLabels}${xLabels}${tradeZone}${levels}${pathSvg}${dateLines}
@@ -3933,6 +3954,58 @@ function buildTimeChart(action, entrySpread, qty, pointPrice, leg1, leg2, entryD
 // ============================================================
 // P&L PROIETTATO sui target di entrata/uscita
 // ============================================================
+// ============================================================
+// FULLSCREEN CHART MODAL — apre il grafico "Andamento Spread nel Tempo" a schermo intero
+// ============================================================
+window.openChartFullscreen = function() {
+  const wrap = document.getElementById('timeChartWrap');
+  if (!wrap) return;
+  const svg = wrap.querySelector('svg.chart-svg');
+  if (!svg) return;
+  const title = wrap.querySelector('.chart-title')?.textContent?.replace('🔍 Ingrandisci', '').trim() || '📅 Andamento Spread';
+  const subtitle = wrap.querySelector('.chart-sub')?.textContent || '';
+  const legend = wrap.querySelector('.chart-legend')?.outerHTML || '';
+  
+  // Clona l'SVG per la vista fullscreen
+  const svgHtml = svg.outerHTML;
+  
+  const modalHtml = `
+    <div id="chartFullscreenModal" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.95);z-index:10000;display:flex;flex-direction:column;padding:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-shrink:0;">
+        <div>
+          <div style="font-size:14px;font-weight:700;color:var(--text);">${title}</div>
+          <div style="font-size:11px;color:var(--text-dim);margin-top:2px;">${subtitle}</div>
+        </div>
+        <button type="button" onclick="closeChartFullscreen()" style="background:var(--bg-elev);border:1px solid var(--border);color:var(--text);padding:8px 14px;border-radius:8px;font-size:14px;cursor:pointer;">✕ Chiudi</button>
+      </div>
+      <div style="flex:1;display:flex;align-items:center;justify-content:center;min-height:0;">
+        <div id="chartFullscreenSvgContainer" style="width:100%;height:100%;max-height:100%;">
+          ${svgHtml}
+        </div>
+      </div>
+      <div style="flex-shrink:0;margin-top:10px;">${legend}</div>
+      <div style="font-size:10px;color:var(--text-faint);text-align:center;margin-top:8px;flex-shrink:0;">
+        💡 Ruota il telefono in orizzontale per la vista migliore
+      </div>
+    </div>
+  `;
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+  document.body.style.overflow = 'hidden';
+  // Forza l'SVG a occupare tutto lo spazio disponibile
+  const fsSvg = document.querySelector('#chartFullscreenSvgContainer svg');
+  if (fsSvg) {
+    fsSvg.style.width = '100%';
+    fsSvg.style.height = '100%';
+    fsSvg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  }
+};
+
+window.closeChartFullscreen = function() {
+  const m = document.getElementById('chartFullscreenModal');
+  if (m) m.remove();
+  document.body.style.overflow = '';
+};
+
 function buildProjection(action, entrySpread, qty, pointPrice, targetSpread, stopSpread) {
   const hasTarget = !isNaN(targetSpread);
   const hasStop = !isNaN(stopSpread);
@@ -6126,8 +6199,10 @@ function openDetailsModal(r) {
 
   let chart = '', payoff = '', projection = '', marginRisk = '';
   if (spreadPrice !== null && spreadPrice !== undefined) {
+    // Passo l'array delle entrate: se ci sono più di 1 la funzione disegna una linea per ognuna
+    const tradeEntries = typeof getTradeEntries === 'function' ? getTradeEntries(r) : null;
     chart = buildTimeChart(action, spreadPrice, qty, pointPrice, leg1Label, leg2Label,
-                           r.entryDate, r.exitDateTarget, r.targetSpread, r.stopSpread);
+                           r.entryDate, r.exitDateTarget, r.targetSpread, r.stopSpread, tradeEntries);
     payoff = buildPayoffChart(action, spreadPrice, qty, pointPrice);
     projection = buildProjection(action, spreadPrice, qty, pointPrice, r.targetSpread, r.stopSpread);
     marginRisk = buildMarginRisk(action, spreadPrice, qty, pointPrice, r.stopSpread, safeCurrentCapital(), r.spanMargin, r.maintenanceMargin, r.riskPct || 2);
