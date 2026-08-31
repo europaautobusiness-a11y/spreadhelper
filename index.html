@@ -3860,18 +3860,23 @@ function buildTimeChart(action, entrySpread, qty, pointPrice, leg1, leg2, entryD
 
   let levels = '';
   // Se ci sono più ingressi (piramidazione), disegno una linea orizzontale per ognuno
-  // altrimenti solo la linea di ingresso principale (retrocompatibilità).
+  // + una linea "media" tratteggiata leggera per il prezzo medio pesato.
   const entries = Array.isArray(entriesArr) && entriesArr.length > 1
     ? entriesArr.filter(e => e && typeof e.spread === 'number' && !isNaN(e.spread))
     : null;
   if (entries && entries.length > 1) {
-    // Disegno una linea per ogni ingresso, con label numerata
+    // Disegno una linea per ogni ingresso, con label numerata a sinistra
     entries.forEach((e, idx) => {
       const yE = yScale(e.spread);
-      const opacity = idx === 0 ? 0.8 : 0.55; // il primo un po' più visibile
+      const opacity = 0.7;
       levels += `<line x1="${padL}" y1="${yE}" x2="${W-padR}" y2="${yE}" stroke="#5ac8ff" stroke-width="1.5" stroke-dasharray="4,4" opacity="${opacity}"/>`;
-      levels += `<text x="${W-padR-4}" y="${yE-4}" text-anchor="end" fill="#5ac8ff" font-size="10" font-weight="700" font-family="JetBrains Mono">ENT #${idx+1} ${e.spread.toFixed(2)}</text>`;
+      // Label a sinistra per non sovrapporsi al target/stop
+      levels += `<text x="${padL+4}" y="${yE-4}" text-anchor="start" fill="#5ac8ff" font-size="10" font-weight="700" font-family="JetBrains Mono">ENT #${idx+1} ${e.spread.toFixed(2)}</text>`;
     });
+    // Linea MEDIA (leggermente più visibile) — usa la media pesata di entrySpread passato
+    const yMean = yScale(entrySpread);
+    levels += `<line x1="${padL}" y1="${yMean}" x2="${W-padR}" y2="${yMean}" stroke="#a9d9f5" stroke-width="1" stroke-dasharray="2,3" opacity="0.85"/>`;
+    levels += `<text x="${W-padR-4}" y="${yMean-4}" text-anchor="end" fill="#a9d9f5" font-size="10" font-weight="700" font-family="JetBrains Mono">MEDIA ${entrySpread.toFixed(2)}</text>`;
   } else {
     // Modalità classica: una sola linea "Entrata"
     levels += `<line x1="${padL}" y1="${yEntry}" x2="${W-padR}" y2="${yEntry}" stroke="#5ac8ff" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.6"/>`;
@@ -3890,11 +3895,33 @@ function buildTimeChart(action, entrySpread, qty, pointPrice, leg1, leg2, entryD
 
   let dateLines = '';
   const c = action === 'BUY' ? '#00e589' : '#ff5c70';
+  // Linea verticale ingresso principale
   dateLines += `<line x1="${xEntry}" y1="${padT}" x2="${xEntry}" y2="${H-padB}" stroke="${c}" stroke-width="2"/>`;
   dateLines += `<circle cx="${xEntry}" cy="${yEntry}" r="6" fill="${c}" stroke="#0a0e0d" stroke-width="2"/>`;
   const entryLabel = entryDateStr ? new Date(entryDateStr).toLocaleDateString('it-IT',{day:'numeric',month:'short'}) : 'OGGI';
   dateLines += `<text x="${xEntry}" y="${padT-8}" text-anchor="middle" fill="${c}" font-size="10" font-weight="700">▼ ENTRATA</text>`;
   dateLines += `<text x="${xEntry}" y="${padT+6}" text-anchor="middle" fill="#b0bcb9" font-size="9" font-family="JetBrains Mono">${entryLabel}</text>`;
+  
+  // Linee verticali temporali per ogni ingresso aggiuntivo (piramidazione)
+  if (entries && entries.length > 1) {
+    entries.forEach((e, idx) => {
+      if (idx === 0) return; // il primo è già disegnato sopra
+      if (!e.ts) return;
+      const entryDate = new Date(e.ts);
+      // Solo se dentro il range visibile del grafico
+      if (entryDate < startD || entryDate > endD) return;
+      const xE = xScale(entryDate);
+      const yE = yScale(e.spread);
+      // Linea verticale tratteggiata leggera (per non oscurare il grafico)
+      dateLines += `<line x1="${xE}" y1="${padT}" x2="${xE}" y2="${H-padB}" stroke="#5ac8ff" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.6"/>`;
+      // Cerchio segno-punto sull'entrata
+      dateLines += `<circle cx="${xE}" cy="${yE}" r="5" fill="#5ac8ff" stroke="#0a0e0d" stroke-width="2"/>`;
+      // Label #N + data
+      const dLabel = entryDate.toLocaleDateString('it-IT', {day:'numeric', month:'short'});
+      dateLines += `<text x="${xE}" y="${padT-8}" text-anchor="middle" fill="#5ac8ff" font-size="10" font-weight="700">▼ #${idx+1}</text>`;
+      dateLines += `<text x="${xE}" y="${padT+6}" text-anchor="middle" fill="#b0bcb9" font-size="9" font-family="JetBrains Mono">${dLabel}</text>`;
+    });
+  }
 
   if (exitDateStr) {
     const yExitOnPath = inTrade.length > 0 ? yScale(inTrade[inTrade.length-1].v) : yEntry;
@@ -3927,9 +3954,9 @@ function buildTimeChart(action, entrySpread, qty, pointPrice, leg1, leg2, entryD
 
   return `
     <div class="chart-wrap" id="timeChartWrap">
-      <div class="chart-title" style="display:flex;justify-content:space-between;align-items:center;">
+      <div class="chart-title" style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
         <span>📅 Andamento Spread nel Tempo</span>
-        <button type="button" class="chart-fullscreen-btn" onclick="openChartFullscreen()" title="Ingrandisci a schermo intero" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
+        <button type="button" class="chart-fullscreen-btn" onclick="openChartFullscreen()" title="Ingrandisci a schermo intero" style="background:var(--blue);color:#fff;border:none;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;box-shadow:0 2px 6px rgba(90,200,255,0.3);">
           🔍 Ingrandisci
         </button>
       </div>
@@ -6311,7 +6338,30 @@ function escapeHtml(s) {
 
 // Restituisce l'array entrate del trade: se non esiste, lo genera dai campi legacy
 function getTradeEntries(t) {
-  if (Array.isArray(t.entries) && t.entries.length > 0) return t.entries;
+  if (Array.isArray(t.entries) && t.entries.length > 0) {
+    // Normalizza lo spread di ogni entrata: se ho p1 e p2 validi,
+    // ricalcolo lo spread SUOI (per gestire il caso in cui il campo spread
+    // è stato salvato con un valore aggregato/sbagliato)
+    return t.entries.map(e => {
+      if (!e) return e;
+      const hasP1 = typeof e.p1 === 'number' && !isNaN(e.p1);
+      const hasP2 = typeof e.p2 === 'number' && !isNaN(e.p2);
+      if (hasP1 && hasP2) {
+        // Determino se questo trade è in modalità cross-currency (SA in dollars)
+        const isInter = t.type && String(t.type).toLowerCase().includes('inter');
+        const uA = t.legASymbol ? String(t.legASymbol).replace(/[FGHJKMNQUVXZ]\d+.*$/, '') : null;
+        const uB = t.legBSymbol ? String(t.legBSymbol).replace(/[FGHJKMNQUVXZ]\d+.*$/, '') : null;
+        const specA = isInter && uA && typeof CONTRACT_SPECS !== 'undefined' ? CONTRACT_SPECS[uA] : null;
+        const specB = isInter && uB && typeof CONTRACT_SPECS !== 'undefined' ? CONTRACT_SPECS[uB] : null;
+        const isSAMode = specA && specB && specA.pointVal !== specB.pointVal;
+        const trueSpread = isSAMode
+          ? (e.p1 * specA.pointVal) - (e.p2 * specB.pointVal)
+          : e.p1 - e.p2;
+        return { ...e, spread: trueSpread };
+      }
+      return e;
+    });
+  }
   // Fallback: genera un'entrata "virtuale" dai campi principali (retrocompatibilità)
   if (t.qty && t.spread !== null && t.spread !== undefined) {
     return [{
@@ -6802,8 +6852,19 @@ function openPyramidModal() {
     };
     
     // Garantisce che t.entries esista (converti trade legacy)
+    // FIX: ricalcolo lo spread dell'entrata #1 dai prezzi p1/p2 originari per evitare
+    // che venga preso da t.spread che potrebbe essere già stato sovrascritto.
     if (!Array.isArray(t.entries) || t.entries.length === 0) {
-      t.entries = getTradeEntries(t).map(e => { delete e._legacy; return e; });
+      const legacyEntries = getTradeEntries(t).map(e => { delete e._legacy; return e; });
+      // Normalizza gli spread delle entrate legacy dai prezzi effettivi
+      legacyEntries.forEach(e => {
+        if (typeof e.p1 === 'number' && typeof e.p2 === 'number') {
+          e.spread = isSAMode
+            ? (e.p1 * specA.pointVal) - (e.p2 * specB.pointVal)
+            : e.p1 - e.p2;
+        }
+      });
+      t.entries = legacyEntries;
     }
     t.entries.push(newEntry);
     
