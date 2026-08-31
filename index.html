@@ -6211,16 +6211,556 @@ function openDetailsModal(r) {
       ${marginRisk}
       ${chart}
       ${payoff}
+      ${renderEntriesHistory(r)}
+      ${renderExitsHistory(r)}
       ${r.notes ? `<div class="card" style="margin-top:14px;background:var(--bg);"><div class="card-title">📝 Note</div><div style="font-size:14px;color:var(--text-dim);font-style:italic;line-height:1.6;">"${escapeHtml(r.notes)}"</div></div>` : ''}
     </div>
   `;
 
   overlay.classList.add('show');
   document.body.style.overflow = 'hidden';
+  // Attacca handler per piramidazione e chiusura parziale (bottoni dinamici nello storico)
+  attachPyramidHandlers();
+  attachPartialCloseHandlers();
 }
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ============================================================
+// PIRAMIDAZIONE / MEDIAZIONE
+// ============================================================
+// Struttura: t.entries = [{ ts, qty, spread, p1, p2, note }, ...]
+// Trade vecchi senza entries[] restano compatibili: usano t.qty/t.spread/t.p1/t.p2
+
+// Restituisce l'array entrate del trade: se non esiste, lo genera dai campi legacy
+function getTradeEntries(t) {
+  if (Array.isArray(t.entries) && t.entries.length > 0) return t.entries;
+  // Fallback: genera un'entrata "virtuale" dai campi principali (retrocompatibilità)
+  if (t.qty && t.spread !== null && t.spread !== undefined) {
+    return [{
+      ts: t.entryDate ? new Date(t.entryDate).getTime() : (t.created || Date.now()),
+      qty: t.qty,
+      spread: (t.realSpread !== null && t.realSpread !== undefined) ? t.realSpread : t.spread,
+      p1: t.p1,
+      p2: t.p2,
+      note: null,
+      _legacy: true
+    }];
+  }
+  return [];
+}
+
+// Ricalcola qty totale, prezzi medi e spread medio dalle entrate
+// Formula B: media pesata dai prezzi raw
+function recalcAggregates(entries) {
+  let totalQty = 0;
+  let weightedP1 = 0, weightedP2 = 0, weightedSpread = 0;
+  let hasP1 = false, hasP2 = false;
+  for (const e of entries) {
+    if (!e || !e.qty) continue;
+    totalQty += e.qty;
+    if (typeof e.p1 === 'number' && !isNaN(e.p1)) { weightedP1 += e.p1 * e.qty; hasP1 = true; }
+    if (typeof e.p2 === 'number' && !isNaN(e.p2)) { weightedP2 += e.p2 * e.qty; hasP2 = true; }
+    if (typeof e.spread === 'number' && !isNaN(e.spread)) weightedSpread += e.spread * e.qty;
+  }
+  const avgP1 = hasP1 && totalQty > 0 ? weightedP1 / totalQty : null;
+  const avgP2 = hasP2 && totalQty > 0 ? weightedP2 / totalQty : null;
+  // Formula B: se ho entrambi i prezzi, ricalcolo lo spread medio da lì (più preciso)
+  // Altrimenti fallback su media pesata degli spread
+  let avgSpread = null;
+  if (avgP1 !== null && avgP2 !== null) {
+    avgSpread = avgP1 - avgP2;
+  } else if (totalQty > 0) {
+    avgSpread = weightedSpread / totalQty;
+  }
+  return { totalQty, avgP1, avgP2, avgSpread };
+}
+
+// Renderizza la card "Storico entrate" nel modale dettaglio trade
+function renderEntriesHistory(t) {
+  const st = t.status || 'planned';
+  // Mostro solo per trade aperti o chiusi (non pianificati)
+  if (st === 'planned') return '';
+  const entries = getTradeEntries(t);
+  if (entries.length === 0) return '';
+  
+  const rows = entries.map((e, idx) => {
+    const dateStr = e.ts ? new Date(e.ts).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—';
+    const timeStr = e.ts ? new Date(e.ts).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : '';
+    const spreadStr = (typeof e.spread === 'number') ? (e.spread >= 0 ? '+' : '') + e.spread.toFixed(4) : '—';
+    const pricesStr = (typeof e.p1 === 'number' && typeof e.p2 === 'number')
+      ? `<span style="color:var(--text-faint);font-size:10px;">${e.p1.toFixed(4)} / ${e.p2.toFixed(4)}</span>`
+      : '';
+    const noteStr = e.note ? `<div style="font-size:10px;color:var(--text-faint);font-style:italic;margin-top:2px;">${escapeHtml(e.note)}</div>` : '';
+    const isFirst = idx === 0;
+    const label = isFirst ? '🟢 Iniziale' : `📌 #${idx + 1}`;
+    return `
+      <div style="display:grid;grid-template-columns:auto 1fr auto;gap:8px;padding:8px 0;border-bottom:1px dashed var(--border);align-items:center;">
+        <div style="font-size:10px;color:var(--text-faint);font-family:monospace;">${dateStr}<br>${timeStr}</div>
+        <div>
+          <div style="font-size:12px;"><strong>${label}</strong> · ${e.qty} contratto${e.qty > 1 ? 'i' : ''}</div>
+          ${pricesStr}
+          ${noteStr}
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:13px;color:var(--blue);">${spreadStr}</div>
+      </div>
+    `;
+  }).join('');
+  
+  const agg = recalcAggregates(entries);
+  const avgSpreadStr = (agg.avgSpread !== null) ? (agg.avgSpread >= 0 ? '+' : '') + agg.avgSpread.toFixed(4) : '—';
+  const avgPricesStr = (agg.avgP1 !== null && agg.avgP2 !== null)
+    ? ` <span style="color:var(--text-faint);font-size:11px;">(medi ${agg.avgP1.toFixed(4)} / ${agg.avgP2.toFixed(4)})</span>`
+    : '';
+  
+  // Pulsante Aggiungi contratti: solo per trade APERTI
+  const addBtn = (st === 'open') ? `
+    <button type="button" class="btn secondary" id="btnAddPyramid" style="margin-top:10px;width:100%;">
+      ➕ Aggiungi contratti (mediazione / piramidazione)
+    </button>
+  ` : '';
+  // Pulsante Chiudi parziale: solo per trade APERTI con più di 1 contratto totale
+  const partialCloseBtn = (st === 'open' && agg.totalQty > 1) ? `
+    <button type="button" class="btn secondary" id="btnPartialClose" style="margin-top:6px;width:100%;background:rgba(255,193,7,0.1);border-color:var(--amber);color:var(--amber);">
+      📤 Chiudi parziale (N contratti su ${agg.totalQty})
+    </button>
+  ` : '';
+  
+  return `
+    <div class="card" style="margin-top:14px;background:var(--bg);">
+      <div class="card-title">📊 Storico Entrate ${entries.length > 1 ? `<span style="font-size:10px;color:var(--text-faint);">(${entries.length} entrate)</span>` : ''}</div>
+      <div style="margin-top:8px;">${rows}</div>
+      <div style="margin-top:12px;padding:10px;background:var(--bg-elev);border-radius:6px;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;">
+          <span style="font-size:12px;color:var(--text-dim);">TOTALE: <strong style="color:var(--text);">${agg.totalQty} contratto${agg.totalQty > 1 ? 'i' : ''}</strong></span>
+          <span style="font-family:'JetBrains Mono',monospace;font-weight:800;color:var(--blue);">Media ${avgSpreadStr}</span>
+        </div>
+        ${avgPricesStr ? `<div style="margin-top:4px;">${avgPricesStr}</div>` : ''}
+      </div>
+      ${addBtn}
+      ${partialCloseBtn}
+    </div>
+  `;
+}
+
+function attachPyramidHandlers() {
+  const btn = document.getElementById('btnAddPyramid');
+  if (btn) btn.addEventListener('click', openPyramidModal);
+}
+
+// ============================================================
+// STORICO USCITE + CHIUSURA PARZIALE
+// ============================================================
+// Struttura: t.exits = [{ ts, qty, exitSpread, exitP1, exitP2, pnl, note }, ...]
+// Ogni chiusura parziale riduce qty del trade. Quando qty → 0, il trade diventa "closed".
+
+function getTradeExits(t) {
+  return Array.isArray(t.exits) ? t.exits : [];
+}
+
+function renderExitsHistory(t) {
+  const exits = getTradeExits(t);
+  if (exits.length === 0) return '';
+  const cs = currencySymbol || '€';
+  const rate = (currentExchangeRate && currentExchangeRate.rate) || 1.14;
+  
+  const rows = exits.map((e, idx) => {
+    const dateStr = e.ts ? new Date(e.ts).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—';
+    const timeStr = e.ts ? new Date(e.ts).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : '';
+    const spreadStr = (typeof e.exitSpread === 'number') ? (e.exitSpread >= 0 ? '+' : '') + e.exitSpread.toFixed(4) : '—';
+    const pricesStr = (typeof e.exitP1 === 'number' && typeof e.exitP2 === 'number')
+      ? `<span style="color:var(--text-faint);font-size:10px;">${e.exitP1.toFixed(4)} / ${e.exitP2.toFixed(4)}</span>`
+      : '';
+    const noteStr = e.note ? `<div style="font-size:10px;color:var(--text-faint);font-style:italic;margin-top:2px;">${escapeHtml(e.note)}</div>` : '';
+    let pnlStr = '—';
+    let pnlColor = 'var(--text-dim)';
+    if (typeof e.pnl === 'number' && !isNaN(e.pnl)) {
+      const sign = e.pnl >= 0 ? '+' : '';
+      pnlColor = e.pnl >= 0 ? 'var(--green)' : 'var(--red)';
+      const pnlCurr = e.pnlCurrency || 'EUR';
+      const symb = pnlCurr === 'USD' ? '$' : '€';
+      pnlStr = `${sign}${symb}${e.pnl.toFixed(2)}`;
+    }
+    return `
+      <div style="display:grid;grid-template-columns:auto 1fr auto;gap:8px;padding:8px 0;border-bottom:1px dashed var(--border);align-items:center;">
+        <div style="font-size:10px;color:var(--text-faint);font-family:monospace;">${dateStr}<br>${timeStr}</div>
+        <div>
+          <div style="font-size:12px;"><strong>📤 Uscita #${idx + 1}</strong> · ${e.qty} contratto${e.qty > 1 ? 'i' : ''}</div>
+          <div style="font-size:11px;color:var(--text-faint);">Spread: <span style="color:var(--blue);font-family:monospace;">${spreadStr}</span> ${pricesStr}</div>
+          ${noteStr}
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-weight:800;font-size:13px;color:${pnlColor};">${pnlStr}</div>
+      </div>
+    `;
+  }).join('');
+  
+  // Totali
+  const totalExitQty = exits.reduce((s, e) => s + (e.qty || 0), 0);
+  let totalPnl = 0;
+  const accountCurr = currencyCode || 'EUR';
+  for (const e of exits) {
+    if (typeof e.pnl !== 'number' || isNaN(e.pnl)) continue;
+    const c = e.pnlCurrency || 'EUR';
+    let p = e.pnl;
+    if (c !== accountCurr) {
+      if (c === 'USD' && accountCurr === 'EUR') p = p / rate;
+      else if (c === 'EUR' && accountCurr === 'USD') p = p * rate;
+    }
+    totalPnl += p;
+  }
+  const totalSign = totalPnl >= 0 ? '+' : '';
+  const totalColor = totalPnl >= 0 ? 'var(--green)' : 'var(--red)';
+  
+  return `
+    <div class="card" style="margin-top:14px;background:var(--bg);">
+      <div class="card-title">📤 Storico Uscite <span style="font-size:10px;color:var(--text-faint);">(${exits.length} chiusur${exits.length > 1 ? 'e' : 'a'})</span></div>
+      <div style="margin-top:8px;">${rows}</div>
+      <div style="margin-top:12px;padding:10px;background:var(--bg-elev);border-radius:6px;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;">
+          <span style="font-size:12px;color:var(--text-dim);">Uscita totale: <strong style="color:var(--text);">${totalExitQty} contratto${totalExitQty > 1 ? 'i' : ''}</strong></span>
+          <span style="font-family:'JetBrains Mono',monospace;font-weight:800;color:${totalColor};">P&L: ${totalSign}${cs}${totalPnl.toFixed(2)}</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function attachPartialCloseHandlers() {
+  const btn = document.getElementById('btnPartialClose');
+  if (btn) btn.addEventListener('click', openPartialCloseModal);
+}
+
+function openPartialCloseModal() {
+  if (!currentModalTrade) return;
+  const t = currentModalTrade;
+  const totalQty = t.qty || 1;
+  // Determino se è modalità SA per adattare la label
+  const isInter = t.type && t.type.toLowerCase().includes('inter');
+  const uA = t.legASymbol ? t.legASymbol.replace(/[FGHJKMNQUVXZ]\d+.*$/, '') : null;
+  const uB = t.legBSymbol ? t.legBSymbol.replace(/[FGHJKMNQUVXZ]\d+.*$/, '') : null;
+  const specA = isInter && uA ? CONTRACT_SPECS[uA] : null;
+  const specB = isInter && uB ? CONTRACT_SPECS[uB] : null;
+  const isSAMode = specA && specB && specA.pointVal !== specB.pointVal;
+  
+  const modalHtml = `
+    <div class="quick-close-modal show" id="partialCloseModal" style="z-index:9999;">
+      <div class="quick-close-content" style="max-width:480px;">
+        <div class="quick-close-title">📤 Chiudi parzialmente ${escapeHtml(t.leg1)} / ${escapeHtml(t.leg2)}</div>
+        <p style="font-size:12px;color:var(--text-dim);margin-bottom:12px;">
+          Chiudi una parte dei ${totalQty} contratti aperti. La posizione resta aperta per i restanti.
+        </p>
+        <div class="field">
+          <label>Contratti da chiudere (max ${totalQty})</label>
+          <input type="number" id="pcQty" min="1" max="${totalQty}" step="1" value="1" inputmode="numeric">
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>Prezzo uscita gamba A</label>
+            <input type="number" id="pcP1" step="0.0001" inputmode="decimal" placeholder="es. ${t.p1 !== null && t.p1 !== undefined ? t.p1.toFixed(4) : '10.5000'}">
+          </div>
+          <div class="field">
+            <label>Prezzo uscita gamba B</label>
+            <input type="number" id="pcP2" step="0.0001" inputmode="decimal" placeholder="es. ${t.p2 !== null && t.p2 !== undefined ? t.p2.toFixed(4) : '11.0000'}">
+          </div>
+        </div>
+        <div id="pcPreview" style="margin:10px 0;padding:10px;background:var(--bg);border-radius:6px;font-size:12px;color:var(--text-faint);">
+          Inserisci prezzi per vedere il P&L stimato.
+        </div>
+        <div class="field">
+          <label>Nota (opzionale)</label>
+          <input type="text" id="pcNote" placeholder="es. presa profit parziale, scaling out...">
+        </div>
+        <div class="btn-row" style="margin-top:14px;">
+          <button class="btn" id="pcConfirm">✓ Conferma chiusura parziale</button>
+          <button class="btn secondary" id="pcCancel">Annulla</button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+  const modal = document.getElementById('partialCloseModal');
+  const p1El = document.getElementById('pcP1');
+  const p2El = document.getElementById('pcP2');
+  const qtyEl = document.getElementById('pcQty');
+  const preview = document.getElementById('pcPreview');
+  const cs = currencySymbol || '€';
+  const rate = (currentExchangeRate && currentExchangeRate.rate) || 1.14;
+  const accountCurr = currencyCode || 'EUR';
+  
+  function updatePreview() {
+    const p1 = parseFloat(p1El.value);
+    const p2 = parseFloat(p2El.value);
+    const q = parseInt(qtyEl.value) || 0;
+    if (isNaN(p1) || isNaN(p2) || q <= 0 || q > totalQty) {
+      preview.innerHTML = '<em>Inserisci quantità (max ' + totalQty + ') e prezzi validi.</em>';
+      return;
+    }
+    // Calcolo spread uscita e P&L parziale
+    const exitSpread = isSAMode
+      ? (p1 * specA.pointVal) - (p2 * specB.pointVal)
+      : p1 - p2;
+    const entrySpread = t.realSpread !== null && t.realSpread !== undefined ? t.realSpread : t.spread;
+    let pnlUsd;
+    if (isSAMode) {
+      // In SA mode gli spread sono già in dollari, point price = 1
+      pnlUsd = (t.action === 'BUY' ? (exitSpread - entrySpread) : (entrySpread - exitSpread)) * q;
+    } else {
+      const pointPrice = t.pointPrice || 1000;
+      pnlUsd = (t.action === 'BUY' ? (exitSpread - entrySpread) : (entrySpread - exitSpread)) * q * pointPrice;
+    }
+    const pnlEur = accountCurr === 'USD' ? pnlUsd : pnlUsd / rate;
+    const remaining = totalQty - q;
+    const sign = pnlEur >= 0 ? '+' : '';
+    const color = pnlEur >= 0 ? 'var(--green)' : 'var(--red)';
+    preview.innerHTML = `
+      <div style="line-height:1.7;">
+        <div>Spread uscita: <strong style="color:var(--blue);font-family:monospace;">${isSAMode ? '$' : ''}${exitSpread >= 0 ? '+' : ''}${exitSpread.toFixed(isSAMode ? 2 : 4)}</strong></div>
+        <div>Chiudi <strong>${q} contratto${q > 1 ? 'i' : ''}</strong> · P&L: <strong style="color:${color};font-family:monospace;">${sign}${cs}${pnlEur.toFixed(2)}</strong></div>
+        ${remaining > 0
+          ? `<div style="border-top:1px dashed var(--border);margin-top:6px;padding-top:6px;">➡️ Rimarranno <strong>${remaining} contratto${remaining > 1 ? 'i' : ''} aperti</strong></div>`
+          : `<div style="border-top:1px dashed var(--border);margin-top:6px;padding-top:6px;color:var(--amber);">⚠️ Trade sarà chiuso completamente (0 contratti rimanenti)</div>`}
+      </div>
+    `;
+  }
+  p1El.addEventListener('input', updatePreview);
+  p2El.addEventListener('input', updatePreview);
+  qtyEl.addEventListener('input', updatePreview);
+  
+  document.getElementById('pcCancel').addEventListener('click', () => modal.remove());
+  document.getElementById('pcConfirm').addEventListener('click', async () => {
+    const p1 = parseFloat(p1El.value);
+    const p2 = parseFloat(p2El.value);
+    const q = parseInt(qtyEl.value);
+    const note = document.getElementById('pcNote').value.trim();
+    if (isNaN(p1) || isNaN(p2)) { alert('Inserisci prezzi validi'); return; }
+    if (!q || q <= 0 || q > totalQty) { alert('Quantità non valida (max ' + totalQty + ')'); return; }
+    
+    // Calcolo spread e P&L
+    const exitSpread = isSAMode
+      ? (p1 * specA.pointVal) - (p2 * specB.pointVal)
+      : p1 - p2;
+    const entrySpread = t.realSpread !== null && t.realSpread !== undefined ? t.realSpread : t.spread;
+    let pnlUsd;
+    if (isSAMode) {
+      pnlUsd = (t.action === 'BUY' ? (exitSpread - entrySpread) : (entrySpread - exitSpread)) * q;
+    } else {
+      const pointPrice = t.pointPrice || 1000;
+      pnlUsd = (t.action === 'BUY' ? (exitSpread - entrySpread) : (entrySpread - exitSpread)) * q * pointPrice;
+    }
+    const pnlEur = accountCurr === 'USD' ? pnlUsd : pnlUsd / rate;
+    
+    // Crea record uscita
+    const newExit = {
+      ts: Date.now(),
+      qty: q,
+      exitP1: p1,
+      exitP2: p2,
+      exitSpread,
+      pnl: pnlEur,
+      pnlCurrency: accountCurr,
+      note: note || null
+    };
+    
+    if (!Array.isArray(t.exits)) t.exits = [];
+    t.exits.push(newExit);
+    
+    // Aggiorna quantità residua
+    t.qty = totalQty - q;
+    
+    // Se qty === 0 → trade CHIUSO completamente
+    if (t.qty <= 0) {
+      t.status = 'closed';
+      // pnlReal = somma di tutti gli exit pnl (in valuta conto)
+      let totalPnlAccount = 0;
+      for (const ex of t.exits) {
+        if (typeof ex.pnl !== 'number' || isNaN(ex.pnl)) continue;
+        const c = ex.pnlCurrency || 'EUR';
+        let p = ex.pnl;
+        if (c !== accountCurr) {
+          if (c === 'USD' && accountCurr === 'EUR') p = p / rate;
+          else if (c === 'EUR' && accountCurr === 'USD') p = p * rate;
+        }
+        totalPnlAccount += p;
+      }
+      t.pnlReal = totalPnlAccount;
+      t.pnlRealCurrency = accountCurr;
+    }
+    t.updated = Date.now();
+    
+    try {
+      await dbPut(t);
+      modal.remove();
+      const sign = pnlEur >= 0 ? '+' : '';
+      if (t.qty <= 0) {
+        showToast(`✓ Trade chiuso completamente · P&L totale: ${sign}${cs}${pnlEur.toFixed(2)}`);
+      } else {
+        showToast(`✓ Chiusi ${q} contratti · P&L parziale: ${sign}${cs}${pnlEur.toFixed(2)} · Rimasti: ${t.qty}`);
+      }
+      await renderReminders();
+      await updateBadge();
+      updateCapitalUI();
+      // Riapri il dettaglio aggiornato (se ancora aperto)
+      if (t.qty > 0) {
+        openDetailsModal(t);
+      } else {
+        closeDetailsModal();
+      }
+    } catch (e) {
+      alert('Errore salvataggio: ' + e.message);
+    }
+  });
+  
+  qtyEl.focus();
+  qtyEl.select();
+  updatePreview();
+}
+
+function openPyramidModal() {
+  if (!currentModalTrade) return;
+  const t = currentModalTrade;
+  // Determino se è una modalità cross-currency (SA dollars) o classica
+  const isInter = t.type && t.type.toLowerCase().includes('inter');
+  const specA = isInter && t.legASymbol ? CONTRACT_SPECS[t.legASymbol.split(/[FGHJKMNQUVXZ]/)[0]] : null;
+  const specB = isInter && t.legBSymbol ? CONTRACT_SPECS[t.legBSymbol.split(/[FGHJKMNQUVXZ]/)[0]] : null;
+  const isSAMode = specA && specB && specA.pointVal !== specB.pointVal;
+  
+  const modalHtml = `
+    <div class="quick-close-modal show" id="pyramidModal" style="z-index:9999;">
+      <div class="quick-close-content" style="max-width:480px;">
+        <div class="quick-close-title">➕ Aggiungi contratti a ${escapeHtml(t.leg1)} / ${escapeHtml(t.leg2)}</div>
+        <p style="font-size:12px;color:var(--text-dim);margin-bottom:12px;">
+          Registra un'entrata aggiuntiva sulla posizione. L'app ricalcolerà quantità totale e prezzo medio.
+        </p>
+        <div class="field">
+          <label>Numero di contratti da aggiungere</label>
+          <input type="number" id="pyrQty" min="1" step="1" value="1" inputmode="numeric">
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>Prezzo gamba A (${escapeHtml(t.leg1)})</label>
+            <input type="number" id="pyrP1" step="0.0001" inputmode="decimal" placeholder="es. ${t.p1 !== null ? t.p1.toFixed(4) : '10.5000'}">
+          </div>
+          <div class="field">
+            <label>Prezzo gamba B (${escapeHtml(t.leg2)})</label>
+            <input type="number" id="pyrP2" step="0.0001" inputmode="decimal" placeholder="es. ${t.p2 !== null ? t.p2.toFixed(4) : '11.0000'}">
+          </div>
+        </div>
+        <div id="pyrPreview" style="margin:10px 0;padding:10px;background:var(--bg);border-radius:6px;font-size:12px;color:var(--text-faint);">
+          Inserisci i prezzi per vedere il calcolo del nuovo prezzo medio.
+        </div>
+        <div class="field">
+          <label>Nota (opzionale)</label>
+          <input type="text" id="pyrNote" placeholder="es. mediazione dopo storno, piramidazione su breakout...">
+        </div>
+        <div class="btn-row" style="margin-top:14px;">
+          <button class="btn" id="pyrConfirm">✓ Aggiungi entrata</button>
+          <button class="btn secondary" id="pyrCancel">Annulla</button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+  const modal = document.getElementById('pyramidModal');
+  const p1El = document.getElementById('pyrP1');
+  const p2El = document.getElementById('pyrP2');
+  const qtyEl = document.getElementById('pyrQty');
+  const preview = document.getElementById('pyrPreview');
+  
+  function updatePreview() {
+    const p1 = parseFloat(p1El.value);
+    const p2 = parseFloat(p2El.value);
+    const q = parseInt(qtyEl.value) || 0;
+    if (isNaN(p1) || isNaN(p2) || q <= 0) {
+      preview.innerHTML = '<em>Inserisci quantità e prezzi validi per vedere il calcolo.</em>';
+      return;
+    }
+    // Simulo l'aggiunta calcolando i nuovi aggregati
+    const currentEntries = getTradeEntries(t);
+    const simulatedEntries = [...currentEntries, { qty: q, p1, p2, spread: p1 - p2 }];
+    const agg = recalcAggregates(simulatedEntries);
+    const newSpread = isSAMode
+      ? (p1 * specA.pointVal) - (p2 * specB.pointVal)
+      : p1 - p2;
+    const newAvgSpread = isSAMode && agg.avgP1 !== null && agg.avgP2 !== null
+      ? (agg.avgP1 * specA.pointVal) - (agg.avgP2 * specB.pointVal)
+      : agg.avgSpread;
+    const spreadUnit = isSAMode ? '$' : '';
+    preview.innerHTML = `
+      <div style="line-height:1.7;">
+        <div>Nuova entrata: <strong>${q} contratto${q > 1 ? 'i' : ''}</strong> @ spread <strong style="color:var(--blue);font-family:monospace;">${spreadUnit}${newSpread >= 0 ? '+' : ''}${newSpread.toFixed(isSAMode ? 2 : 4)}</strong></div>
+        <div style="border-top:1px dashed var(--border);margin-top:6px;padding-top:6px;">
+          <div>📊 Nuovo totale: <strong>${agg.totalQty} contratti</strong></div>
+          <div>📈 Nuovo prezzo medio: <strong style="color:var(--green);font-family:monospace;">${spreadUnit}${newAvgSpread !== null ? (newAvgSpread >= 0 ? '+' : '') + newAvgSpread.toFixed(isSAMode ? 2 : 4) : '—'}</strong></div>
+          ${agg.avgP1 !== null ? `<div style="color:var(--text-faint);font-size:10px;margin-top:2px;">Prezzi medi gambe: ${agg.avgP1.toFixed(4)} / ${agg.avgP2.toFixed(4)}</div>` : ''}
+        </div>
+      </div>
+    `;
+  }
+  p1El.addEventListener('input', updatePreview);
+  p2El.addEventListener('input', updatePreview);
+  qtyEl.addEventListener('input', updatePreview);
+  
+  document.getElementById('pyrCancel').addEventListener('click', () => modal.remove());
+  document.getElementById('pyrConfirm').addEventListener('click', async () => {
+    const p1 = parseFloat(p1El.value);
+    const p2 = parseFloat(p2El.value);
+    const q = parseInt(qtyEl.value);
+    const note = document.getElementById('pyrNote').value.trim();
+    if (isNaN(p1) || isNaN(p2)) { alert('Inserisci prezzi validi'); return; }
+    if (!q || q <= 0) { alert('Inserisci una quantità valida'); return; }
+    
+    // Costruisco la nuova entrata
+    const spread = isSAMode
+      ? (p1 * specA.pointVal) - (p2 * specB.pointVal)
+      : p1 - p2;
+    const newEntry = {
+      ts: Date.now(),
+      qty: q,
+      p1,
+      p2,
+      spread,
+      note: note || null
+    };
+    
+    // Garantisce che t.entries esista (converti trade legacy)
+    if (!Array.isArray(t.entries) || t.entries.length === 0) {
+      t.entries = getTradeEntries(t).map(e => { delete e._legacy; return e; });
+    }
+    t.entries.push(newEntry);
+    
+    // Ricalcola aggregati e aggiorna i campi principali del trade
+    const agg = recalcAggregates(t.entries);
+    t.qty = agg.totalQty;
+    if (agg.avgP1 !== null) t.p1 = agg.avgP1;
+    if (agg.avgP2 !== null) t.p2 = agg.avgP2;
+    if (agg.avgSpread !== null) {
+      // In modalità SA lo spread è già in dollari, ma per non rompere altri calcoli
+      // manteniamo il campo spread come "spread medio raw" e realSpread come "spread di ingresso"
+      t.spread = isSAMode && agg.avgP1 !== null && agg.avgP2 !== null
+        ? (agg.avgP1 * specA.pointVal) - (agg.avgP2 * specB.pointVal)
+        : agg.avgSpread;
+      t.realSpread = t.spread;
+    }
+    t.updated = Date.now();
+    
+    try {
+      await dbPut(t);
+      modal.remove();
+      showToast(`✓ Aggiunto: totale ${agg.totalQty} contratti @ media ${(t.spread >= 0 ? '+' : '') + t.spread.toFixed(isSAMode ? 2 : 4)}`);
+      // Ricarica lista e ri-apri il modale dettaglio aggiornato
+      await renderReminders();
+      openDetailsModal(t);
+    } catch (e) {
+      alert('Errore salvataggio: ' + e.message);
+    }
+  });
+  
+  qtyEl.focus();
+  updatePreview();
 }
 
 function closeDetailsModal() {
