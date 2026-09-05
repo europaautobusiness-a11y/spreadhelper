@@ -6776,6 +6776,31 @@ function openPyramidModal() {
         <div id="pyrPreview" style="margin:10px 0;padding:10px;background:var(--bg);border-radius:6px;font-size:12px;color:var(--text-faint);">
           Inserisci i prezzi per vedere il calcolo del nuovo prezzo medio.
         </div>
+        
+        <!-- Override margine reale IBKR (opzionale) -->
+        <details style="margin:12px 0;padding:10px;background:var(--bg);border-radius:6px;border:1px solid var(--border);">
+          <summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--amber);">
+            ⚖️ Override margine reale IBKR (opzionale)
+          </summary>
+          <p style="font-size:11px;color:var(--text-faint);margin:8px 0;line-height:1.5;">
+            Il calcolo automatico usa <strong>margine × qty</strong>, ma IBKR spesso mostra un valore leggermente diverso 
+            (buffer FX, offset SPAN, concentration). Se vuoi allineare esattamente al valore reale di TWS, inserisci qui i totali.
+          </p>
+          <div class="row">
+            <div class="field">
+              <label style="font-size:11px;">Margine Iniziale TOTALE (${currencySymbol || '€'})</label>
+              <input type="number" id="pyrMarginOverride" step="1" inputmode="numeric" placeholder="es. 2100">
+              <span class="hint">Lascia vuoto per calcolo automatico</span>
+            </div>
+            <div class="field">
+              <label style="font-size:11px;">Mantenimento TOTALE (${currencySymbol || '€'})</label>
+              <input type="number" id="pyrMaintOverride" step="1" inputmode="numeric" placeholder="es. 1800">
+              <span class="hint">Lascia vuoto per calcolo automatico</span>
+            </div>
+          </div>
+          <div id="pyrMarginPreview" style="margin-top:8px;font-size:11px;color:var(--text-faint);"></div>
+        </details>
+        
         <div class="field">
           <label>Nota (opzionale)</label>
           <input type="text" id="pyrNote" placeholder="es. mediazione dopo storno, piramidazione su breakout...">
@@ -6794,6 +6819,35 @@ function openPyramidModal() {
   const p2El = document.getElementById('pyrP2');
   const qtyEl = document.getElementById('pyrQty');
   const preview = document.getElementById('pyrPreview');
+  const marginOvEl = document.getElementById('pyrMarginOverride');
+  const maintOvEl = document.getElementById('pyrMaintOverride');
+  const marginPreview = document.getElementById('pyrMarginPreview');
+  const cs = currencySymbol || '€';
+  
+  // Aggiorna il preview del margine (calcolato vs override)
+  function updateMarginPreview() {
+    if (!marginPreview) return;
+    const q = parseInt(qtyEl.value) || 0;
+    if (q <= 0) { marginPreview.innerHTML = ''; return; }
+    const currentQty = t.qty || 1;
+    const newTotalQty = currentQty + q;
+    const perContractSpan = t.spanMargin || 0;
+    const perContractMaint = t.maintenanceMargin || 0;
+    const calcSpanTotal = perContractSpan * newTotalQty;
+    const calcMaintTotal = perContractMaint * newTotalQty;
+    const overrideSpan = parseFloat(marginOvEl?.value);
+    const overrideMaint = parseFloat(maintOvEl?.value);
+    const usedSpan = !isNaN(overrideSpan) ? overrideSpan : calcSpanTotal;
+    const usedMaint = !isNaN(overrideMaint) ? overrideMaint : calcMaintTotal;
+    const spanDiff = !isNaN(overrideSpan) ? overrideSpan - calcSpanTotal : 0;
+    const spanPct = calcSpanTotal > 0 ? ((spanDiff / calcSpanTotal) * 100) : 0;
+    marginPreview.innerHTML = `
+      <div style="font-family:monospace;line-height:1.7;">
+        <div>Margine calcolato (${newTotalQty} contratti): <strong>${cs}${calcSpanTotal.toLocaleString('it-IT')}</strong> iniziale · <strong>${cs}${calcMaintTotal.toLocaleString('it-IT')}</strong> mantenimento</div>
+        ${!isNaN(overrideSpan) ? `<div style="color:var(--amber);">→ Verrà usato override: <strong>${cs}${usedSpan.toLocaleString('it-IT')}</strong> (${spanDiff >= 0 ? '+' : ''}${cs}${spanDiff.toFixed(0)} · ${spanPct >= 0 ? '+' : ''}${spanPct.toFixed(1)}% vs calcolato)</div>` : ''}
+      </div>
+    `;
+  }
   
   function updatePreview() {
     const p1 = parseFloat(p1El.value);
@@ -6801,6 +6855,7 @@ function openPyramidModal() {
     const q = parseInt(qtyEl.value) || 0;
     if (isNaN(p1) || isNaN(p2) || q <= 0) {
       preview.innerHTML = '<em>Inserisci quantità e prezzi validi per vedere il calcolo.</em>';
+      updateMarginPreview();
       return;
     }
     // Simulo l'aggiunta calcolando i nuovi aggregati
@@ -6828,6 +6883,8 @@ function openPyramidModal() {
   p1El.addEventListener('input', updatePreview);
   p2El.addEventListener('input', updatePreview);
   qtyEl.addEventListener('input', updatePreview);
+  if (marginOvEl) marginOvEl.addEventListener('input', updateMarginPreview);
+  if (maintOvEl) maintOvEl.addEventListener('input', updateMarginPreview);
   
   document.getElementById('pyrCancel').addEventListener('click', () => modal.remove());
   document.getElementById('pyrConfirm').addEventListener('click', async () => {
@@ -6835,6 +6892,9 @@ function openPyramidModal() {
     const p2 = parseFloat(p2El.value);
     const q = parseInt(qtyEl.value);
     const note = document.getElementById('pyrNote').value.trim();
+    // Override margine (opzionali)
+    const overrideSpanTotal = parseFloat(marginOvEl?.value);
+    const overrideMaintTotal = parseFloat(maintOvEl?.value);
     if (isNaN(p1) || isNaN(p2)) { alert('Inserisci prezzi validi'); return; }
     if (!q || q <= 0) { alert('Inserisci una quantità valida'); return; }
     
@@ -6881,6 +6941,19 @@ function openPyramidModal() {
         : agg.avgSpread;
       t.realSpread = t.spread;
     }
+    
+    // Override margine reale IBKR (se inseriti dall'utente)
+    // Ricalcolo il "margine per contratto" a ritroso dal totale, così tutti i calcoli
+    // successivi che fanno "spanMargin × qty" restano coerenti con il totale voluto.
+    if (!isNaN(overrideSpanTotal) && overrideSpanTotal > 0 && t.qty > 0) {
+      t.spanMargin = overrideSpanTotal / t.qty;
+      t.marginOverrideTotal = overrideSpanTotal; // salvo anche il totale originale per riferimento
+    }
+    if (!isNaN(overrideMaintTotal) && overrideMaintTotal > 0 && t.qty > 0) {
+      t.maintenanceMargin = overrideMaintTotal / t.qty;
+      t.maintOverrideTotal = overrideMaintTotal;
+    }
+    
     t.updated = Date.now();
     
     try {
@@ -6897,6 +6970,7 @@ function openPyramidModal() {
   
   qtyEl.focus();
   updatePreview();
+  updateMarginPreview();
 }
 
 function closeDetailsModal() {
