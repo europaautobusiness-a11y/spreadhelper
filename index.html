@@ -1856,6 +1856,37 @@
       </div>
     </div>
 
+    <!-- ═══ BOOK & LIQUIDITÀ (opzionale) ═══ -->
+    <div class="card">
+      <div class="card-title">📊 Book &amp; Liquidità <span style="font-size:10px;color:var(--text-faint);font-weight:400;">(opzionale)</span></div>
+      <p style="font-size: 13px; color: var(--text-dim); margin-bottom: 12px;">
+        Inserisci bid/ask di ogni gamba per valutare la liquidità e stimare il prezzo di esecuzione realistico.
+      </p>
+      <div style="font-size:11px;color:var(--text-faint);margin-bottom:8px;">Gamba 1 (Near/A)</div>
+      <div class="row">
+        <div class="field">
+          <label style="color:var(--red);">Bid ($)</label>
+          <input type="number" id="bidLeg1" step="0.0001" inputmode="decimal" placeholder="es. 10.5000">
+        </div>
+        <div class="field">
+          <label style="color:var(--green);">Ask ($)</label>
+          <input type="number" id="askLeg1" step="0.0001" inputmode="decimal" placeholder="es. 10.5100">
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--text-faint);margin-top:12px;margin-bottom:8px;">Gamba 2 (Far/B)</div>
+      <div class="row">
+        <div class="field">
+          <label style="color:var(--red);">Bid ($)</label>
+          <input type="number" id="bidLeg2" step="0.0001" inputmode="decimal" placeholder="es. 11.0000">
+        </div>
+        <div class="field">
+          <label style="color:var(--green);">Ask ($)</label>
+          <input type="number" id="askLeg2" step="0.0001" inputmode="decimal" placeholder="es. 11.0100">
+        </div>
+      </div>
+      <div id="bookAnalysis" style="margin-top:12px;"></div>
+    </div>
+
     <div class="card">
       <div class="card-title">📅 Date &amp; Target Uscita</div>
       <div class="row">
@@ -3197,6 +3228,186 @@ function updateCMECodeHints() {
  'legBUnderlying','legBMonthSel','legBYearSel'].forEach(id => {
   const el = document.getElementById(id);
   if (el) el.addEventListener('change', updateCMECodeHints);
+});
+
+// ============================================================
+// BOOK & LIQUIDITÀ — analisi bid/ask e prezzo di esecuzione realistico
+// ============================================================
+function updateBookAnalysis() {
+  const out = document.getElementById('bookAnalysis');
+  if (!out) return;
+  
+  const bid1 = parseFloat(document.getElementById('bidLeg1')?.value);
+  const ask1 = parseFloat(document.getElementById('askLeg1')?.value);
+  const bid2 = parseFloat(document.getElementById('bidLeg2')?.value);
+  const ask2 = parseFloat(document.getElementById('askLeg2')?.value);
+  
+  // Se nulla è compilato, non mostro nulla
+  if (isNaN(bid1) && isNaN(ask1) && isNaN(bid2) && isNaN(ask2)) {
+    out.innerHTML = '';
+    return;
+  }
+  
+  // Serve almeno un bid+ask per gamba per calcolare
+  const hasLeg1 = !isNaN(bid1) && !isNaN(ask1);
+  const hasLeg2 = !isNaN(bid2) && !isNaN(ask2);
+  
+  if (!hasLeg1 || !hasLeg2) {
+    out.innerHTML = `
+      <div style="padding:10px;background:rgba(255,193,7,0.08);border-left:3px solid var(--amber);border-radius:6px;font-size:11px;color:var(--text-dim);">
+        ⏳ Inserisci bid+ask di ${!hasLeg1 && !hasLeg2 ? 'entrambe le gambe' : (!hasLeg1 ? 'Gamba 1' : 'Gamba 2')} per vedere l'analisi.
+      </div>
+    `;
+    return;
+  }
+  
+  // Determino se è modalità SA (cross-currency)
+  const spreadType = document.getElementById('spreadType')?.value;
+  const isInter = spreadType === 'intercommodity';
+  const uA = isInter ? document.getElementById('legAUnderlying')?.value : null;
+  const uB = isInter ? document.getElementById('legBUnderlying')?.value : null;
+  const specA = uA && typeof CONTRACT_SPECS !== 'undefined' ? CONTRACT_SPECS[uA] : null;
+  const specB = uB && typeof CONTRACT_SPECS !== 'undefined' ? CONTRACT_SPECS[uB] : null;
+  const isSAMode = specA && specB && specA.pointVal !== specB.pointVal;
+  
+  // Calcolo spreads e mids
+  const mid1 = (bid1 + ask1) / 2;
+  const mid2 = (bid2 + ask2) / 2;
+  const bidAskLeg1 = ask1 - bid1;
+  const bidAskLeg2 = ask2 - bid2;
+  
+  // Spread combo: dipende dalla direzione
+  // Se COMPRO il combo (Leg1) e VENDO Leg2 → pago ask1, ricevo bid2 → spread_ask
+  // Se VENDO il combo (Leg1) e COMPRO Leg2 → ricevo bid1, pago ask2 → spread_bid  
+  // Mid spread: mid1 - mid2
+  const spreadMid = isSAMode
+    ? (mid1 * specA.pointVal) - (mid2 * specB.pointVal)
+    : mid1 - mid2;
+  const spreadAsk = isSAMode
+    ? (ask1 * specA.pointVal) - (bid2 * specB.pointVal)
+    : ask1 - bid2;
+  const spreadBid = isSAMode
+    ? (bid1 * specA.pointVal) - (ask2 * specB.pointVal)
+    : bid1 - ask2;
+  const comboBidAsk = spreadAsk - spreadBid;
+  
+  // Determino direzione dell'ordine (BUY/SELL)
+  const action = document.getElementById('view')?.value || 'seasonalgo-buy';
+  const isBuy = action.includes('buy') || action === 'widen' || action === 'bull-near';
+  const executionSpread = isBuy ? spreadAsk : spreadBid;
+  
+  // Point price per calcoli in €/$
+  const pointPrice = parseFloat(document.getElementById('pointPrice')?.value) || 1000;
+  const qty = parseInt(document.getElementById('qty')?.value) || 1;
+  const spreadFmt = isSAMode ? 2 : 4;
+  const unit = isSAMode ? '$' : '';
+  
+  // Costo bid/ask spread in dollari
+  const bidAskCostUsd = isSAMode
+    ? comboBidAsk * qty  // già in dollari
+    : comboBidAsk * pointPrice * qty;
+  
+  // Valutazione liquidità: quanto è largo il bid/ask combo rispetto al valore assoluto del prezzo
+  // (rough heuristic: <0.05% = eccellente, <0.2% = buono, <0.5% = medio, >0.5% = illiquido)
+  const midAbs = Math.abs(spreadMid);
+  const pctSpread = midAbs > 0 ? (comboBidAsk / Math.abs(midAbs)) * 100 : 0;
+  let liquidityBadge, liquidityColor, liquidityMsg;
+  if (comboBidAsk <= 0.001 && !isSAMode) {
+    // Spread azzerato: dati mancanti o errati
+    liquidityBadge = '⚠️ Verifica dati';
+    liquidityColor = 'var(--amber)';
+    liquidityMsg = 'Bid/ask sembra troppo stretto o inconsistente';
+  } else if (isSAMode) {
+    // Per SA mode usiamo soglie in dollari
+    if (comboBidAsk < 10) { liquidityBadge = '🟢 Eccellente'; liquidityColor = 'var(--green)'; liquidityMsg = 'Mercato molto liquido'; }
+    else if (comboBidAsk < 50) { liquidityBadge = '🟢 Buona'; liquidityColor = 'var(--green)'; liquidityMsg = 'Liquidità adeguata per il trading'; }
+    else if (comboBidAsk < 200) { liquidityBadge = '🟡 Media'; liquidityColor = 'var(--amber)'; liquidityMsg = 'Attento allo slippage sui grossi lotti'; }
+    else { liquidityBadge = '🔴 Bassa'; liquidityColor = 'var(--red)'; liquidityMsg = 'Illiquido: usa ordini limite, evita market'; }
+  } else {
+    // Per prezzi raw usiamo il rapporto percentuale
+    if (pctSpread < 0.1) { liquidityBadge = '🟢 Eccellente'; liquidityColor = 'var(--green)'; liquidityMsg = 'Mercato molto liquido'; }
+    else if (pctSpread < 0.5) { liquidityBadge = '🟢 Buona'; liquidityColor = 'var(--green)'; liquidityMsg = 'Liquidità adeguata per il trading'; }
+    else if (pctSpread < 2) { liquidityBadge = '🟡 Media'; liquidityColor = 'var(--amber)'; liquidityMsg = 'Attento allo slippage sui grossi lotti'; }
+    else { liquidityBadge = '🔴 Bassa'; liquidityColor = 'var(--red)'; liquidityMsg = 'Illiquido: usa ordini limite, evita market'; }
+  }
+  
+  // Costo in valuta conto (approssimazione: converto USD → EUR se il conto è EUR)
+  const accountSymb = (typeof currencySymbol !== 'undefined' && currencySymbol) ? currencySymbol : '€';
+  const accountCurr = (typeof currencyCode !== 'undefined' && currencyCode) ? currencyCode : 'EUR';
+  const rate = (typeof currentExchangeRate !== 'undefined' && currentExchangeRate && currentExchangeRate.rate) ? currentExchangeRate.rate : 1.14;
+  const bidAskCostAccount = accountCurr === 'USD' ? bidAskCostUsd : bidAskCostUsd / rate;
+  
+  out.innerHTML = `
+    <div style="background:var(--bg);border-radius:8px;padding:12px;border:1px solid var(--border);">
+      <!-- Badge liquidità -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px;">
+        <div style="font-size:10px;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Analisi book</div>
+        <div style="font-size:12px;font-weight:800;color:${liquidityColor};">${liquidityBadge}</div>
+      </div>
+      <div style="font-size:11px;color:var(--text-dim);margin-bottom:10px;">${liquidityMsg}</div>
+      
+      <!-- Spread bid/ask/mid -->
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.7;border-top:1px dashed var(--border);padding-top:8px;">
+        <div style="display:grid;grid-template-columns:1fr auto;gap:8px;">
+          <span style="color:var(--red);">Spread BID (per SELL):</span>
+          <strong style="color:var(--red);">${unit}${spreadBid >= 0 ? '+' : ''}${spreadBid.toFixed(spreadFmt)}</strong>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr auto;gap:8px;">
+          <span style="color:var(--text-dim);">Spread MID (teorico):</span>
+          <strong style="color:var(--text);">${unit}${spreadMid >= 0 ? '+' : ''}${spreadMid.toFixed(spreadFmt)}</strong>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr auto;gap:8px;">
+          <span style="color:var(--green);">Spread ASK (per BUY):</span>
+          <strong style="color:var(--green);">${unit}${spreadAsk >= 0 ? '+' : ''}${spreadAsk.toFixed(spreadFmt)}</strong>
+        </div>
+        <div style="border-top:1px dashed var(--border);margin-top:6px;padding-top:6px;display:grid;grid-template-columns:1fr auto;gap:8px;">
+          <span style="color:var(--text-faint);">Larghezza bid/ask combo:</span>
+          <strong style="color:var(--amber);">${unit}${comboBidAsk.toFixed(spreadFmt)}${!isSAMode ? ` (${pctSpread.toFixed(2)}%)` : ''}</strong>
+        </div>
+      </div>
+      
+      <!-- Prezzo di esecuzione realistico -->
+      <div style="margin-top:10px;padding:10px;background:var(--bg-elev);border-radius:6px;border-left:3px solid var(--blue);">
+        <div style="font-size:11px;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">
+          🎯 Esecuzione probabile (${isBuy ? 'BUY' : 'SELL'})
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:800;color:var(--blue);margin-top:4px;">
+          ${unit}${executionSpread >= 0 ? '+' : ''}${executionSpread.toFixed(spreadFmt)}
+        </div>
+        <div style="font-size:11px;color:var(--text-dim);margin-top:4px;">
+          Se compri/vendi il combo <strong>al mercato</strong>, questo è il prezzo che ti aspetti (${isBuy ? 'paghi ask1, ricevi bid2' : 'ricevi bid1, paghi ask2'})
+        </div>
+      </div>
+      
+      <!-- Costo del bid/ask spread -->
+      <div style="margin-top:8px;padding:8px 10px;background:rgba(255,107,107,0.06);border-left:3px solid var(--red);border-radius:6px;">
+        <div style="font-size:11px;color:var(--text-dim);">
+          💸 Costo bid/ask spread (${qty} contratto${qty > 1 ? 'i' : ''}):
+          <strong style="color:var(--red);">${accountSymb}${bidAskCostAccount.toFixed(2)}</strong>
+          ${accountCurr !== 'USD' ? `<span style="font-size:10px;color:var(--text-faint);">≈ $${bidAskCostUsd.toFixed(2)}</span>` : ''}
+        </div>
+        <div style="font-size:10px;color:var(--text-faint);margin-top:2px;">
+          Questo è quanto perdi in "slippage" se esegui al mercato invece che a limit ottimizzato
+        </div>
+      </div>
+      
+      <!-- Suggerimento pratico -->
+      <div style="margin-top:8px;font-size:11px;color:var(--text-faint);font-style:italic;text-align:center;">
+        💡 Usa ordini LIMIT vicino al MID (${unit}${spreadMid.toFixed(spreadFmt)}) per risparmiare il bid/ask spread
+      </div>
+    </div>
+  `;
+}
+
+// Attacco listener a tutti i campi bid/ask
+['bidLeg1','askLeg1','bidLeg2','askLeg2'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('input', updateBookAnalysis);
+});
+// Riattivo l'analisi anche quando cambia direzione o tipo spread
+['view','spreadType','qty','pointPrice','legAUnderlying','legBUnderlying'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('change', updateBookAnalysis);
 });
 
 // ============================================================
