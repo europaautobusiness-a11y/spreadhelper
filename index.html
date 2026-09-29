@@ -2535,6 +2535,14 @@
       Quando IBKR esegue l'ordine, i prezzi reali possono differire da quelli pianificati. Inseriscili qui.
     </p>
     <div id="quickOpenPlannedInfo" style="background:var(--bg);padding:8px 10px;border-radius:6px;margin-bottom:12px;font-size:12px;color:var(--text-faint);font-family:'JetBrains Mono',monospace;"></div>
+    
+    <!-- Contratti eseguiti (per fill parziali) -->
+    <div class="field" style="margin-bottom:12px;">
+      <label id="quickOpenExecLabel">Contratti eseguiti</label>
+      <input type="number" id="quickOpenExecQty" min="1" step="1" inputmode="numeric">
+      <span class="hint" id="quickOpenExecHint" style="color:var(--text-faint);font-size:11px;">Quanti sono stati fillati realmente da IBKR</span>
+    </div>
+    
     <div class="row">
       <div class="field">
         <label id="quickOpenLeg1Label">Leg 1 ingresso reale</label>
@@ -5875,13 +5883,26 @@ function openQuickOpenModal(trade) {
   // Pre-fill con prezzi reali se già esistono (caso ri-apertura), altrimenti vuoto
   document.getElementById('quickOpenPrice1').value = trade.realEntryP1 != null ? trade.realEntryP1 : '';
   document.getElementById('quickOpenPrice2').value = trade.realEntryP2 != null ? trade.realEntryP2 : '';
+  // Pre-fill contratti eseguiti = quantità pianificata (assumo tutto eseguito di default)
+  const plannedQty = trade.qty || 1;
+  const execEl = document.getElementById('quickOpenExecQty');
+  const execLabel = document.getElementById('quickOpenExecLabel');
+  const execHint = document.getElementById('quickOpenExecHint');
+  if (execEl) {
+    execEl.value = plannedQty;
+    execEl.max = plannedQty;
+  }
+  if (execLabel) execLabel.textContent = `Contratti eseguiti (max ${plannedQty})`;
+  if (execHint) execHint.innerHTML = plannedQty > 1
+    ? `Se IBKR ha fillato solo alcuni contratti, riduci qui. I restanti resteranno pianificati.`
+    : 'Quanti sono stati fillati realmente da IBKR';
   // Mostra prezzi pianificati come riferimento
   const plannedSpread = trade.spread !== null && trade.spread !== undefined ? trade.spread.toFixed(4) : '—';
   const p1 = trade.entryP1 !== null && trade.entryP1 !== undefined ? trade.entryP1.toFixed(4) : '—';
   const p2 = trade.entryP2 !== null && trade.entryP2 !== undefined ? trade.entryP2.toFixed(4) : '—';
   document.getElementById('quickOpenPlannedInfo').innerHTML = `
-    <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.1em;font-weight:700;margin-bottom:4px;">📋 Prezzi pianificati (riferimento)</div>
-    L1: ${p1} · L2: ${p2} · Spread: ${plannedSpread}
+    <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.1em;font-weight:700;margin-bottom:4px;">📋 Pianificato (riferimento)</div>
+    Qty: ${plannedQty} · L1: ${p1} · L2: ${p2} · Spread: ${plannedSpread}
   `;
   document.getElementById('quickOpenSpreadPreview').innerHTML = '';
   modal.classList.add('show');
@@ -6152,20 +6173,94 @@ function attachQuickOpenHandlers() {
       return;
     }
     const t = quickOpenTrade;
+    const plannedQty = t.qty || 1;
+    // Leggo quantità eseguita: se non compilata o non valida, assume tutta la pianificata
+    const execQtyRaw = parseInt(document.getElementById('quickOpenExecQty')?.value);
+    const execQty = (!isNaN(execQtyRaw) && execQtyRaw > 0 && execQtyRaw <= plannedQty) ? execQtyRaw : plannedQty;
+    const remainingQty = plannedQty - execQty;
+    
+    // === CASO A: fill COMPLETO ===
+    if (remainingQty === 0) {
+      t.status = 'open';
+      t.realEntryP1 = e1;
+      t.realEntryP2 = e2;
+      t.realSpread = e1 - e2;
+      // Registro la prima entrata nell'array entries[] per supportare piramidazione futura
+      const now = Date.now();
+      t.entries = [{
+        ts: now,
+        qty: execQty,
+        p1: e1,
+        p2: e2,
+        spread: e1 - e2,
+        note: null
+      }];
+      t.updated = now;
+      await dbPut(t);
+      closeQuickOpenModal();
+      await renderReminders();
+      await updateBadge();
+      const slippage = t.realSpread - t.spread;
+      const slipMoney = slippage * t.qty * t.pointPrice;
+      const isFavorable = t.action === 'BUY' ? slippage < 0 : slippage > 0;
+      const sign = slipMoney >= 0 ? '+' : '';
+      showToast(`✅ Aperto · slippage ${isFavorable ? '😊' : '😬'} ${sign}${PRICE_SYMBOL}${slipMoney.toFixed(2)}`);
+      return;
+    }
+    
+    // === CASO B: fill PARZIALE → split in due trade ===
+    // 1) Trade originale aggiornato: diventa "aperto" con qty = execQty
+    // 2) Nuovo trade "pianificato residuo" con qty = remainingQty
+    const now = Date.now();
+    
+    // Prepara il trade aperto (mantiene l'id originale)
     t.status = 'open';
+    t.qty = execQty;
     t.realEntryP1 = e1;
     t.realEntryP2 = e2;
     t.realSpread = e1 - e2;
-    t.updated = Date.now();
+    t.entries = [{
+      ts: now,
+      qty: execQty,
+      p1: e1,
+      p2: e2,
+      spread: e1 - e2,
+      note: `Fill parziale ${execQty}/${plannedQty}`
+    }];
+    // Aggiorno il margine SPAN pro-rata (scala con la nuova quantità)
+    // NB: spanMargin è "per contratto", quindi resta invariato — cambia solo il totale mostrato che è spanMargin × qty
+    t.updated = now;
+    // Nota nel trade originale per memoria
+    const originalNote = t.notes || '';
+    t.notes = originalNote
+      ? `${originalNote}\n[Fill parziale ${execQty}/${plannedQty} - residuo ${remainingQty} in altro trade]`
+      : `[Fill parziale ${execQty}/${plannedQty} - residuo ${remainingQty} in altro trade]`;
     await dbPut(t);
+    
+    // Crea il trade residuo (pianificato con qty = remainingQty)
+    // Clono tutti i campi del trade originale ma cambio id, qty, status, notes
+    const residualTrade = { ...t };
+    delete residualTrade.id; // il DB genererà un nuovo id
+    residualTrade.qty = remainingQty;
+    residualTrade.status = 'planned';
+    residualTrade.realEntryP1 = null;
+    residualTrade.realEntryP2 = null;
+    residualTrade.realSpread = null;
+    residualTrade.entries = []; // il residuo non ha ancora entrate reali
+    residualTrade.parentTradeId = t.id; // riferimento al trade da cui è stato splittato
+    residualTrade.notes = `📌 Residuo di ${t.leg1}/${t.leg2} (fill parziale ${execQty}/${plannedQty} del trade #${t.id})`;
+    residualTrade.created = now;
+    residualTrade.updated = now;
+    await dbPut(residualTrade);
+    
     closeQuickOpenModal();
     await renderReminders();
     await updateBadge();
     const slippage = t.realSpread - t.spread;
-    const slipMoney = slippage * t.qty * t.pointPrice;
+    const slipMoney = slippage * execQty * t.pointPrice;
     const isFavorable = t.action === 'BUY' ? slippage < 0 : slippage > 0;
     const sign = slipMoney >= 0 ? '+' : '';
-    showToast(`✅ Aperto · slippage ${isFavorable ? '😊' : '😬'} ${sign}${PRICE_SYMBOL}${slipMoney.toFixed(2)}`);
+    showToast(`⚠️ Fill parziale ${execQty}/${plannedQty} · Aperto ${execQty} · ${remainingQty} residui pianificati · slippage ${sign}${PRICE_SYMBOL}${slipMoney.toFixed(2)}`);
   });
   // Tap fuori dalla box → chiudi
   document.getElementById('quickOpenModal').addEventListener('click', (e) => {
