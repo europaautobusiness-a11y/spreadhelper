@@ -1856,6 +1856,20 @@
       </div>
     </div>
 
+    <!-- ═══ SPREAD TARGET → PREZZI ENTRATA (reverse calculator universale) ═══ -->
+    <div class="card">
+      <div class="card-title">🎯 Spread Target → Prezzi Entrata <span style="font-size:10px;color:var(--text-faint);font-weight:400;">(opzionale)</span></div>
+      <p style="font-size: 13px; color: var(--text-dim); margin-bottom: 10px;">
+        Lo spread attuale è a un valore, ma vuoi entrare a un altro? Inserisci lo spread che vuoi ottenere e l'app ti mostra <strong>3 modi</strong> per ricavarlo dalle due gambe.
+      </p>
+      <div class="field" style="margin-bottom:8px;">
+        <label style="font-size:12px;">🎯 Spread di entrata desiderato</label>
+        <input type="number" id="rcTargetSpread" step="0.0001" inputmode="decimal" placeholder="es. -0.22">
+        <span class="hint" id="rcTargetHint" style="color:var(--text-faint);font-size:11px;">Metti il valore che vuoi raggiungere (stesso formato dei prezzi gambe)</span>
+      </div>
+      <div id="rcOptions" style="margin-top:10px;"></div>
+    </div>
+
     <!-- ═══ BOOK & LIQUIDITÀ (opzionale) ═══ -->
     <div class="card">
       <div class="card-title">📊 Book &amp; Liquidità <span style="font-size:10px;color:var(--text-faint);font-weight:400;">(opzionale)</span></div>
@@ -3417,6 +3431,208 @@ function updateBookAnalysis() {
   const el = document.getElementById(id);
   if (el) el.addEventListener('change', updateBookAnalysis);
 });
+
+// ============================================================
+// REVERSE CALCULATOR UNIVERSALE
+// Mostra 3 modi di raggiungere uno spread di entrata desiderato,
+// manipolando: solo gamba A, solo gamba B, oppure entrambe simmetricamente.
+// Funziona sia per Calendar (same pointVal) che Inter-Commodity (SA mode).
+// ============================================================
+function getCurrentLegPrices() {
+  // Ritorna { p1, p2, isSAMode, specA, specB, uA, uB } o null se non ci sono prezzi validi
+  const spreadType = document.getElementById('spreadType')?.value;
+  const isInter = spreadType === 'intercommodity';
+  let p1, p2, uA, uB, specA, specB;
+  if (isInter) {
+    p1 = parseFloat(document.getElementById('legAPrice')?.value);
+    p2 = parseFloat(document.getElementById('legBPrice')?.value);
+    uA = document.getElementById('legAUnderlying')?.value;
+    uB = document.getElementById('legBUnderlying')?.value;
+    specA = uA && typeof CONTRACT_SPECS !== 'undefined' ? CONTRACT_SPECS[uA] : null;
+    specB = uB && typeof CONTRACT_SPECS !== 'undefined' ? CONTRACT_SPECS[uB] : null;
+  } else {
+    p1 = parseFloat(document.getElementById('nearPrice')?.value);
+    p2 = parseFloat(document.getElementById('farPrice')?.value);
+    uA = 'A (Near)'; uB = 'B (Far)';
+    specA = null; specB = null;
+  }
+  if (isNaN(p1) || isNaN(p2)) return null;
+  const isSAMode = specA && specB && specA.pointVal !== specB.pointVal;
+  return { p1, p2, isSAMode, specA, specB, uA, uB, isInter };
+}
+
+function updateReverseTargetHint() {
+  const hint = document.getElementById('rcTargetHint');
+  const info = getCurrentLegPrices();
+  if (!hint) return;
+  if (!info) {
+    hint.textContent = 'Inserisci prima i prezzi delle due gambe sopra';
+    return;
+  }
+  const cur = info.isSAMode
+    ? (info.p1 * info.specA.pointVal) - (info.p2 * info.specB.pointVal)
+    : info.p1 - info.p2;
+  const fmt = info.isSAMode ? cur.toFixed(2) : cur.toFixed(4);
+  const unit = info.isSAMode ? '$' : '';
+  hint.innerHTML = `Spread attuale: <strong style="color:var(--blue);font-family:monospace;">${unit}${cur >= 0 ? '+' : ''}${fmt}</strong> · inserisci il valore che vuoi ottenere`;
+}
+
+function updateReverseCalcUniversal() {
+  const out = document.getElementById('rcOptions');
+  if (!out) return;
+  const info = getCurrentLegPrices();
+  const target = parseFloat(document.getElementById('rcTargetSpread')?.value);
+
+  if (!info) {
+    out.innerHTML = `<div style="padding:10px;background:rgba(255,193,7,0.08);border-left:3px solid var(--amber);border-radius:6px;font-size:11px;color:var(--text-dim);">⏳ Compila prima i prezzi delle due gambe nella sezione sopra.</div>`;
+    return;
+  }
+  if (isNaN(target)) {
+    out.innerHTML = '';
+    return;
+  }
+
+  const { p1, p2, isSAMode, specA, specB, uA, uB } = info;
+  const curSpread = isSAMode ? (p1 * specA.pointVal) - (p2 * specB.pointVal) : p1 - p2;
+  const diff = target - curSpread;
+
+  // Decimali per i prezzi
+  const dec = isSAMode ? ((uA && uA.startsWith('6J')) ? 5 : 4) : 4;
+  const unit = isSAMode ? '$' : '';
+
+  // --- OPZIONE 1: muovi solo A ---
+  // Serve: p1' - p2 = target (classico) OR p1' * pvA - p2 * pvB = target (SA)
+  const newP1_optA = isSAMode
+    ? (target + p2 * specB.pointVal) / specA.pointVal
+    : target + p2;
+  const deltaP1_A = newP1_optA - p1;
+
+  // --- OPZIONE 2: muovi solo B ---
+  const newP2_optB = isSAMode
+    ? (p1 * specA.pointVal - target) / specB.pointVal
+    : p1 - target;
+  const deltaP2_B = newP2_optB - p2;
+
+  // --- OPZIONE 3: muovi entrambe simmetricamente (metà movimento ciascuna) ---
+  // Approssimazione: muovi A di +d/2 e B di -d/2 in modo che il delta spread sia d
+  // Calendar: (p1 + dA) - (p2 + dB) = p1-p2 + dA - dB = cur + diff → dA - dB = diff
+  //   → simmetrico: dA = diff/2, dB = -diff/2
+  // SA: (p1 + dA)*pvA - (p2 + dB)*pvB = cur + dA*pvA - dB*pvB = target
+  //   → dA*pvA - dB*pvB = diff
+  //   → simmetrico: dA*pvA = diff/2 e dB*pvB = -diff/2
+  //   → dA = diff/(2*pvA), dB = -diff/(2*pvB)
+  let deltaA_sym, deltaB_sym;
+  if (isSAMode) {
+    deltaA_sym = diff / (2 * specA.pointVal);
+    deltaB_sym = -diff / (2 * specB.pointVal);
+  } else {
+    deltaA_sym = diff / 2;
+    deltaB_sym = -diff / 2;
+  }
+  const newP1_sym = p1 + deltaA_sym;
+  const newP2_sym = p2 + deltaB_sym;
+
+  // Helper per rendere una opzione
+  const renderOpt = (num, title, p1New, p2New, color, note) => {
+    const d1 = p1New - p1;
+    const d2 = p2New - p2;
+    const d1Pct = p1 !== 0 ? (d1 / Math.abs(p1)) * 100 : 0;
+    const d2Pct = p2 !== 0 ? (d2 / Math.abs(p2)) * 100 : 0;
+    const verify = isSAMode ? (p1New * specA.pointVal) - (p2New * specB.pointVal) : p1New - p2New;
+    const vfmt = isSAMode ? verify.toFixed(2) : verify.toFixed(4);
+    const match = Math.abs(verify - target) < (isSAMode ? 0.5 : 0.0001);
+    return `
+      <div style="background:var(--bg);border:1px solid var(--border);border-left:3px solid ${color};border-radius:6px;padding:10px;margin-bottom:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <strong style="color:${color};font-size:12px;">OPZIONE ${num} · ${title}</strong>
+          <span style="font-size:10px;color:var(--text-faint);">${note}</span>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.7;">
+          <div>
+            <strong style="color:var(--text);">${uA}</strong>:
+            <span style="color:var(--text-faint);">${p1.toFixed(dec)}</span> →
+            <span style="color:var(--blue);font-weight:700;font-size:13px;">${p1New.toFixed(dec)}</span>
+            <span style="color:${d1>=0?'var(--green)':'var(--red)'};font-size:10px;">
+              (${d1>=0?'+':''}${d1.toFixed(dec)}${!isSAMode ? ` · ${d1Pct>=0?'+':''}${d1Pct.toFixed(2)}%` : ''})
+            </span>
+          </div>
+          <div>
+            <strong style="color:var(--text);">${uB}</strong>:
+            <span style="color:var(--text-faint);">${p2.toFixed(dec)}</span> →
+            <span style="color:var(--blue);font-weight:700;font-size:13px;">${p2New.toFixed(dec)}</span>
+            <span style="color:${d2>=0?'var(--green)':'var(--red)'};font-size:10px;">
+              (${d2>=0?'+':''}${d2.toFixed(dec)}${!isSAMode ? ` · ${d2Pct>=0?'+':''}${d2Pct.toFixed(2)}%` : ''})
+            </span>
+          </div>
+          <div style="border-top:1px dashed var(--border);margin-top:4px;padding-top:4px;color:var(--text-faint);">
+            Verifica spread: <strong style="color:${match ? 'var(--green)' : 'var(--red)'};">${unit}${verify>=0?'+':''}${vfmt}</strong> ${match ? '✓' : '✗'}
+          </div>
+        </div>
+        <button type="button" class="btn secondary rcApplyBtn" data-p1="${p1New}" data-p2="${p2New}" style="margin-top:8px;font-size:11px;padding:5px 10px;width:100%;">
+          ✓ Applica questi prezzi alle gambe
+        </button>
+      </div>
+    `;
+  };
+
+  const diffFmt = isSAMode ? diff.toFixed(2) : diff.toFixed(4);
+  out.innerHTML = `
+    <div style="font-size:11px;color:var(--text-faint);margin-bottom:8px;padding:6px 10px;background:var(--bg);border-radius:6px;">
+      Movimento spread richiesto:
+      <strong style="color:${diff>=0?'var(--green)':'var(--red)'};font-family:monospace;">${diff>=0?'+':''}${unit}${diffFmt}</strong>
+      (da ${unit}${curSpread>=0?'+':''}${isSAMode?curSpread.toFixed(2):curSpread.toFixed(4)} a ${unit}${target>=0?'+':''}${isSAMode?target.toFixed(2):target.toFixed(4)})
+    </div>
+    ${renderOpt(1, `Muovi solo ${uA}`, newP1_optA, p2, '#5ac8ff', `${uB} invariato`)}
+    ${renderOpt(2, `Muovi solo ${uB}`, p1, newP2_optB, '#5ac8ff', `${uA} invariato`)}
+    ${renderOpt(3, 'Movimento simmetrico', newP1_sym, newP2_sym, '#00e589', 'metà movimento su ciascuna gamba')}
+    <div style="margin-top:8px;padding:8px 10px;background:rgba(33,150,243,0.08);border-left:3px solid var(--blue);border-radius:4px;font-size:11px;color:var(--text-dim);line-height:1.5;">
+      💡 Nella realtà il mercato di solito muove entrambe le gambe (Opzione 3 è la più realistica). Le Opzioni 1 e 2 ti dicono "se solo una gamba si muovesse, dove dovrebbe arrivare".
+    </div>
+  `;
+
+  // Attach handlers ai bottoni "Applica"
+  out.querySelectorAll('.rcApplyBtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const newP1 = parseFloat(btn.dataset.p1);
+      const newP2 = parseFloat(btn.dataset.p2);
+      if (isNaN(newP1) || isNaN(newP2)) return;
+      // Applica ai campi giusti (calendar o inter)
+      const info2 = getCurrentLegPrices();
+      if (!info2) return;
+      if (info2.isInter) {
+        const a = document.getElementById('legAPrice');
+        const b = document.getElementById('legBPrice');
+        if (a) { a.value = newP1.toFixed(dec); a.dispatchEvent(new Event('input', {bubbles:true})); }
+        if (b) { b.value = newP2.toFixed(dec); b.dispatchEvent(new Event('input', {bubbles:true})); }
+      } else {
+        const n = document.getElementById('nearPrice');
+        const f = document.getElementById('farPrice');
+        if (n) { n.value = newP1.toFixed(dec); n.dispatchEvent(new Event('input', {bubbles:true})); }
+        if (f) { f.value = newP2.toFixed(dec); f.dispatchEvent(new Event('input', {bubbles:true})); }
+      }
+      // Refresh hint e opzioni (lo spread "attuale" è cambiato)
+      updateReverseTargetHint();
+      // Nota: non ricalcolo le opzioni perché ora il target coincide con l'attuale
+      showToast && showToast(`✓ Prezzi applicati · spread ora a ${unit}${target.toFixed(isSAMode ? 2 : 4)}`);
+    });
+  });
+}
+
+// Attacco listener
+const _rcInput = document.getElementById('rcTargetSpread');
+if (_rcInput) _rcInput.addEventListener('input', updateReverseCalcUniversal);
+// Aggiorna hint quando cambiano prezzi/tipo spread
+['nearPrice','farPrice','legAPrice','legBPrice','spreadType','legAUnderlying','legBUnderlying'].forEach(id => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const evt = el.tagName === 'SELECT' ? 'change' : 'input';
+  el.addEventListener(evt, () => {
+    updateReverseTargetHint();
+    updateReverseCalcUniversal();
+  });
+});
+// Prima attivazione
+setTimeout(() => { updateReverseTargetHint(); }, 100);
 
 // ============================================================
 // PANNELLO "Riferimento SeasonAlgo" per Inter-Commodity
@@ -5154,6 +5370,49 @@ document.getElementById('calcPnlBtn').addEventListener('click', () => {
 });
 
 document.getElementById('calcBtn').addEventListener('click', compute);
+
+// ============================================================
+// AUTO-RICALCOLO LIVE
+// Dopo che l'utente ha premuto "Calcola" almeno una volta (lastResult !== null),
+// qualsiasi modifica ai campi del form rilancia compute() automaticamente,
+// con un piccolo debounce di 400ms per non ricalcolare a ogni tasto.
+// ============================================================
+let _autoRecalcTimer = null;
+function _scheduleAutoRecalc() {
+  if (!lastResult) return; // non ricalcolare se l'utente non ha ancora premuto Calcola
+  clearTimeout(_autoRecalcTimer);
+  _autoRecalcTimer = setTimeout(() => {
+    try { compute(); } catch (e) { console.warn('auto-ricalcolo fallito:', e); }
+  }, 400);
+}
+// Attacco il listener a tutti i campi del form Pianifica che influenzano il calcolo
+const _liveFields = [
+  // Prezzi gambe (calendar + inter-commodity)
+  'nearPrice', 'farPrice', 'legAPrice', 'legBPrice',
+  // Quantità e point price
+  'qty', 'pointPrice',
+  // Target, stop, risk
+  'targetSpread', 'stopSpread', 'riskPct',
+  // Margini (opzionali)
+  'spanMargin', 'maintenanceMargin',
+  // Date (influenzano il grafico)
+  'entryDate', 'exitDateTarget',
+  // Direzione / view
+  'view', 'action', 'spreadType',
+  // Underlying/mese/anno delle gambe (inter-commodity)
+  'underlying', 'nearMonth', 'nearYear', 'farMonth', 'farYear',
+  'legAUnderlying', 'legAMonthSel', 'legAYearSel',
+  'legBUnderlying', 'legBMonthSel', 'legBYearSel',
+  // Book / bid-ask (influenzano l'esecuzione realistica)
+  'bidLeg1', 'askLeg1', 'bidLeg2', 'askLeg2'
+];
+_liveFields.forEach(id => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const evt = (el.tagName === 'SELECT' || el.type === 'date') ? 'change' : 'input';
+  el.addEventListener(evt, _scheduleAutoRecalc);
+});
+
 document.getElementById('resetBtn').addEventListener('click', () => {
   document.querySelectorAll('input').forEach(i => {
     if (i.type !== 'date') {
